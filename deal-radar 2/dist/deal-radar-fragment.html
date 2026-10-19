@@ -1,84 +1,110 @@
 <title>Deal Radar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Schibsted+Grotesk:wght@500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* Brokerage quote screen: watchlist, one price, one order ticket. */
 :root{
-  --bg:#f5f6f3; --surface:#ffffff; --surface2:#f0f2ee; --ink:#161a21; --muted:#5b6370; --faint:#8a919c;
-  --line:#e2e5e0; --accent:#2457f5; --accent-bg:#e9eefe;
-  --good:#12805c; --good-bg:#e3f4ec; --warn:#a96a0a; --warn-bg:#fbf0d9; --bad:#c23a3a; --bad-bg:#fbe8e6;
-  --shadow:0 1px 2px rgba(20,25,35,.05),0 4px 14px rgba(20,25,35,.04);
-  --head:'Schibsted Grotesk',system-ui,sans-serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'Spline Sans Mono',ui-monospace,monospace;
+  --bg:#ffffff; --ink:#000000; --muted:#6e7278; --faint:#9aa0a6;
+  --line:#ececec; --soft:#f4f4f5; --surface:#ffffff; --surface2:#f4f4f5;
+  --up:#00c805; --down:#ff5000; --accent:#000000; --accent-bg:#f4f4f5;
+  --good:#00c805; --good-bg:#e9fbe8; --warn:#c47b00; --warn-bg:#fff6e5; --bad:#ff5000; --bad-bg:#fff1ea;
+  --shadow:none;
+  --head:'Inter',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif; --mono:'Inter',system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#0f1217; --surface:#171b22; --surface2:#1d222b; --ink:#eceff4; --muted:#a2aab8; --faint:#757e8c;
-    --line:#2a303b; --accent:#6f93ff; --accent-bg:#1c2745;
-    --good:#4fcf9f; --good-bg:#12302a; --warn:#e5ae52; --warn-bg:#35290f; --bad:#f08080; --bad-bg:#3a1c1c;
-    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --bg:#000000; --ink:#ffffff; --muted:#a3a8b0; --faint:#6e7278;
+    --line:#2a2a2a; --soft:#141414; --surface:#000000; --surface2:#141414;
+    --accent:#ffffff; --accent-bg:#141414;
+    --good-bg:#062e0c; --warn-bg:#2a2108; --bad-bg:#2e1208;
+    --shadow:none;
   }
-}
-:root[data-theme="dark"]{
-  --bg:#0f1217; --surface:#171b22; --surface2:#1d222b; --ink:#eceff4; --muted:#a2aab8; --faint:#757e8c;
-  --line:#2a303b; --accent:#6f93ff; --accent-bg:#1c2745;
-  --good:#4fcf9f; --good-bg:#12302a; --warn:#e5ae52; --warn-bg:#35290f; --bad:#f08080; --bad-bg:#3a1c1c;
-  --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select{font:inherit;color:inherit}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 h1,h2,h3{font-family:var(--head);margin:0;letter-spacing:-.01em}
 
-.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
-.brand h1{font-size:19px;font-weight:700}
-.brand small{display:block;font-size:12px;color:var(--muted);font-family:var(--body);font-weight:400;letter-spacing:0}
-.pills{display:flex;flex-wrap:wrap;gap:8px}
-.pill{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:99px;background:var(--surface2);font-size:12.5px;color:var(--muted)}
-.pill i{width:7px;height:7px;border-radius:50%;background:var(--faint);display:block}
-.pill.on i{background:var(--good)}
-.pill.on{color:var(--ink)}
-.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:500;font-size:14px}
-.btn:hover{border-color:var(--accent);color:var(--accent)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.primary:hover{filter:brightness(1.08);color:#fff}
-.btn:disabled{opacity:.55;cursor:default}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{background:var(--bg);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.topbar{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:16px 28px}
+.brand{margin-right:auto}
+.brand h1{font-size:18px;font-weight:600;letter-spacing:-.03em}
+.guide{max-width:1120px;margin:0 auto;padding:18px 28px 0;color:var(--muted);font-size:14px}
+.status{max-width:1120px;margin:0 auto;padding:14px 28px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.status .cell{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.status small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
+.status b{display:block;font-size:14px;font-weight:600}
+.status span{display:block;color:var(--faint);font-size:12px;margin-top:2px}
+.status .err{grid-column:1 / -1;color:var(--down);font-size:13px}
+@media (max-width:700px){.status{grid-template-columns:1fr 1fr;padding-left:16px;padding-right:16px}}
+.btn{border:0;background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:600;font-size:14px}
+.btn:hover{opacity:.86}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--up);outline-offset:2px}
 
-.shell{display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px;max-width:1280px;margin:0 auto;padding:20px 24px 48px}
-@media (max-width:900px){.shell{grid-template-columns:1fr;padding:16px}.top{padding:12px 16px}}
+.shell{display:grid;grid-template-columns:280px minmax(0,1fr);gap:8px 36px;max-width:1120px;margin:0 auto;padding:12px 28px 64px}
+@media (max-width:900px){.shell{grid-template-columns:1fr;padding:8px 16px 40px}.topbar,.guide{padding-left:16px;padding-right:16px}}
 
 .notice{margin:0 0 14px;padding:10px 14px;border-radius:10px;background:var(--accent-bg);font-size:13.5px}
 .notice.err{background:var(--bad-bg)}
 
-.list{display:flex;flex-direction:column;gap:8px;align-self:start}
-.list h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;font-family:var(--body);margin:2px 4px 4px}
-.item{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;box-shadow:var(--shadow)}
-.item:hover{border-color:var(--faint)}
-.item[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.item .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.item .nm{font-family:var(--head);font-weight:600;font-size:15px}
-.item .tk{font-size:12px;color:var(--muted);margin-left:6px}
-.item .r2{color:var(--muted);font-size:13px;margin-top:2px}
-.item .r3{display:flex;gap:12px;font-size:12.5px;color:var(--muted);margin-top:8px}
-.tag{font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
-.tag.buy{background:var(--good-bg);color:var(--good)}
-.tag.fair{background:var(--warn-bg);color:var(--warn)}
-.tag.avoid{background:var(--bad-bg);color:var(--bad)}
-.tag.unknown{background:var(--surface2);color:var(--muted)}
+.list{align-self:start;padding-top:8px}
+.list h2{font-size:13px;font-weight:600;color:var(--muted);margin:8px 12px 4px}
+.list h2 .count{color:var(--ink);font-variant-numeric:tabular-nums}
+.list .hint{margin:0 12px 10px;color:var(--faint);font-size:12.5px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:1px;width:100%;text-align:left;background:transparent;border:0;border-radius:12px;padding:10px 12px;cursor:pointer}
+.item:hover{background:var(--soft)}
+.item[aria-current="true"]{background:var(--soft)}
+.item .nm{font-weight:600;font-size:14.5px}
+.item .tk{grid-column:1;color:var(--muted);font-size:12.5px}
+.item .act{grid-row:1;grid-column:2;font-weight:600;font-size:14px;text-align:right}
+.item .px{grid-row:2;grid-column:2;color:var(--muted);font-size:12.5px;text-align:right}
+.act.bid{color:var(--up)} .act.ask{color:var(--down)} .act.pass,.act.unknown,.act.terms_need_verification,.act.retrieval_failed,.act.parsing_failed,.act.no_relevant_filing{color:var(--muted)}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px}
 .card h3{font-size:16px;margin-bottom:4px}
 .sub{color:var(--muted);font-size:13.5px;margin:0 0 12px}
 
-.dealhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;align-items:flex-start}
-.dealhead h2{font-size:24px;font-weight:700}
-.dealhead .meta{color:var(--muted);font-size:14px;margin-top:2px}
-.facts{display:flex;flex-wrap:wrap;gap:6px 22px}
-.fact small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.fact b{font-family:var(--mono);font-weight:500;font-size:17px}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+@media (max-width:900px){.stage{grid-template-columns:1fr}.ticket{order:-1}}
+.kicker{margin:0;color:var(--muted);font-size:13px;font-weight:600;letter-spacing:.04em}
+.read h2{font-size:28px;font-weight:600;letter-spacing:-.03em;margin:2px 0 6px}
+.lede{margin:0 0 18px;color:var(--muted);font-size:15px}
+.pxbig{font-size:52px;font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.pxsub{margin:8px 0 0;font-size:16px;font-weight:600}
+.pxsub.bid{color:var(--up)} .pxsub.ask{color:var(--down)} .pxsub.pass{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:26px 0 8px;padding-top:18px;border-top:1px solid var(--line)}
+@media (max-width:700px){.stats{grid-template-columns:1fr;gap:12px}}
+.stat small{display:block;color:var(--muted);font-size:13px;margin-bottom:2px}
+.stat b{font-size:22px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.stat span{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
+.map{position:relative;height:78px;margin:22px 8px 6px}
+.map-line{position:absolute;left:0;right:0;top:28px;height:2px;background:var(--line);border-radius:2px}
+.mark{position:absolute;top:22px;width:14px;height:14px;transform:translateX(-50%)}
+.mark i{display:block;width:10px;height:10px;border-radius:50%;background:var(--ink);border:2px solid var(--bg)}
+.mark.now{top:20px}
+.mark.now i{background:var(--up);width:14px;height:14px}
+.rows{margin-top:8px}
+.rows div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px}
+.rows b{font-weight:600;font-variant-numeric:tabular-nums}
+.rows .you{font-weight:600}
+.ticket{position:sticky;top:78px;border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;background:var(--surface)}
+.ticket h3{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:10px}
+.verb{display:block;border-radius:12px;padding:16px 16px 14px;margin-bottom:14px}
+.verb.bid{background:var(--up);color:#041204}
+.verb.ask{background:#1c1c1e;color:#fff}
+.verb.pass{background:var(--soft);color:var(--ink)}
+.verb strong{display:block;font-size:28px;letter-spacing:-.03em;line-height:1.1}
+.verb em{display:block;margin-top:4px;font-style:normal;font-size:14px;font-weight:500}
+.ticket .line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:14px}
+.ticket .line span{color:var(--muted)}
+.ticket .line b{font-weight:600;font-variant-numeric:tabular-nums}
+.ticket .say{margin:10px 0 0;font-size:14px}
+.ticket .fine{margin-top:12px}
 a{color:var(--accent)}
 
 .banner{border-radius:14px;padding:20px 22px;margin-bottom:16px;border:1px solid transparent;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;align-items:center}
@@ -156,16 +182,16 @@ details p,details li{color:var(--muted);font-size:13.5px}
 </style>
 
 <header class="top">
-  <div class="brand">
-    <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="16" cy="16" r="8" fill="none" stroke="var(--accent)" stroke-width="2" opacity=".55"/><circle cx="16" cy="16" r="2.6" fill="var(--accent)"/><path d="M16 16 L26 8" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
-    <div><h1>Deal Radar</h1><small>What is an option on a takeover target really worth?</small></div>
+  <div class="topbar">
+    <div class="brand"><h1>Deal Radar</h1></div>
+    <button class="btn" id="scanBtn" type="button">Scan filings</button>
   </div>
-  <div class="pills" id="pills"></div>
-  <button class="btn primary" id="scanBtn" type="button">Scan EDGAR</button>
 </header>
+<p class="guide">Pick a company. You will see the stock price, the chance the buyout happens, and whether to buy, sell, or wait.</p>
+<section id="status" class="status" aria-label="Data status"></section>
 
 <main class="shell">
-  <aside class="list" id="list" aria-label="Announced deals"></aside>
+  <aside class="list" id="list" aria-label="Companies being bought"></aside>
   <section id="detail" aria-live="polite"></section>
 </main>
 
@@ -253,15 +279,20 @@ function verdictOf(edge){
 }
 
 /* ---------- Data ---------- */
-const SAMPLE = [{"id": "s1", "target": "Marrow Therapeutics", "ticker": "MARR", "acquirer": "Halcyon Biologics", "filedDaysAgo": 6, "offer": 48.0, "consideration": "cash", "daysToClose": 120, "closePhrase": "expected to close in the first quarter of 2027", "flags": {"hsr": true, "secondRequest": false, "foreign": [], "other": [], "financingCondition": false, "tender": false, "vote": true, "goShop": false, "termFees": ["$92 million (3.1%)"]}, "market": {"spot": 46.1, "downside": 34.0, "assumed": false}, "contract": {"kind": "call", "strike": 45.0, "days": 75, "vol": 0.38, "premium": 2.1, "rate": 0.045, "assumed": false}, "dealroom": null, "note": "All cash. The two companies make different drugs, so antitrust overlap is small.", "source": "sample", "form": "8-K", "items": ["1.01"], "indexUrl": null, "docUrl": null, "evidence": {}, "pClose": 0.92, "pPending": 0.86, "drivers": [{"label": "Typical announced deal", "delta": 0.0, "note": "Starting point: most announced public deals close."}, {"label": "US antitrust clearance (HSR)", "delta": -0.01, "note": "Routine filing, rarely blocks a deal on its own."}, {"label": "No financing condition", "delta": 0.01, "note": "The buyer has to close even if its financing is late."}, {"label": "Shareholder vote required", "delta": -0.01, "note": "A vote can fail, though most pass."}], "extraction": "sample", "expectedClose": null}, {"id": "s2", "target": "Quill Software", "ticker": "QUIL", "acquirer": "Northbeam Systems", "filedDaysAgo": 11, "offer": 27.5, "consideration": "cash", "daysToClose": 150, "closePhrase": "expected to close in the second quarter of 2027", "flags": {"hsr": true, "secondRequest": true, "foreign": [], "other": [], "financingCondition": false, "tender": false, "vote": true, "goShop": false, "termFees": ["$61 million (2.6%)"]}, "market": {"spot": 26.2, "downside": 19.5, "assumed": false}, "contract": {"kind": "call", "strike": 27.0, "days": 210, "vol": 0.42, "premium": 1.8, "rate": 0.045, "assumed": false}, "dealroom": {"name": "Quill Software", "tagline": "Workflow tools for enterprise teams", "hq": "Austin, United States", "sectors": ["Enterprise software", "Productivity"], "valuation": 1900000000, "valuationYear": 2023, "fundingTotal": 410000000, "employees": 1450, "status": "operational", "url": null}, "note": "Second request from antitrust regulators. The two companies compete in enterprise tools.", "source": "sample", "form": "8-K", "items": ["1.01"], "indexUrl": null, "docUrl": null, "evidence": {}, "pClose": 0.82, "pPending": 0.76, "drivers": [{"label": "Typical announced deal", "delta": 0.0, "note": "Starting point: most announced public deals close."}, {"label": "US antitrust clearance (HSR)", "delta": -0.01, "note": "Routine filing, rarely blocks a deal on its own."}, {"label": "Second request from antitrust regulators", "delta": -0.1, "note": "A deeper review. Raises delay and block risk."}, {"label": "No financing condition", "delta": 0.01, "note": "The buyer has to close even if its financing is late."}, {"label": "Shareholder vote required", "delta": -0.01, "note": "A vote can fail, though most pass."}], "extraction": "sample", "expectedClose": null}, {"id": "s3", "target": "Lathe Analog", "ticker": "LATH", "acquirer": "Corvid Semiconductor", "filedDaysAgo": 3, "offer": 62.0, "consideration": "cash", "daysToClose": 270, "closePhrase": "expected to close by the end of 2027", "flags": {"hsr": true, "secondRequest": true, "foreign": ["CFIUS", "China SAMR", "European Commission"], "other": [], "financingCondition": false, "tender": false, "vote": true, "goShop": false, "termFees": ["$310 million (4.4%)"]}, "market": {"spot": 54.0, "downside": 44.0, "assumed": false}, "contract": {"kind": "call", "strike": 55.0, "days": 120, "vol": 0.55, "premium": 3.4, "rate": 0.045, "assumed": false}, "dealroom": {"name": "Lathe Analog", "tagline": "Precision analog chips for industrial equipment", "hq": "Boston, United States", "sectors": ["Semiconductors", "Industrial technology"], "valuation": 6200000000, "valuationYear": 2024, "fundingTotal": 880000000, "employees": 3100, "status": "operational", "url": null}, "note": "Needs approval in the US, China and the EU. The longest and riskiest path of the five.", "source": "sample", "form": "8-K", "items": ["1.01"], "indexUrl": null, "docUrl": null, "evidence": {}, "pClose": 0.73, "pPending": 0.67, "drivers": [{"label": "Typical announced deal", "delta": 0.0, "note": "Starting point: most announced public deals close."}, {"label": "US antitrust clearance (HSR)", "delta": -0.01, "note": "Routine filing, rarely blocks a deal on its own."}, {"label": "Second request from antitrust regulators", "delta": -0.1, "note": "A deeper review. Raises delay and block risk."}, {"label": "Foreign approvals: CFIUS, China SAMR, European Commission", "delta": -0.09, "note": "Each extra regulator adds timing and veto risk."}, {"label": "No financing condition", "delta": 0.01, "note": "The buyer has to close even if its financing is late."}, {"label": "Shareholder vote required", "delta": -0.01, "note": "A vote can fail, though most pass."}], "extraction": "sample", "expectedClose": null}, {"id": "s4", "target": "Altamar Gas", "ticker": "ALTA", "acquirer": "Pinecrest Energy", "filedDaysAgo": 15, "offer": 41.0, "consideration": "cash", "daysToClose": 200, "closePhrase": "expected to close in the third quarter of 2027", "flags": {"hsr": true, "secondRequest": true, "foreign": [], "other": ["State utility commission"], "financingCondition": true, "tender": false, "vote": true, "goShop": false, "termFees": ["$140 million (3.5%)"]}, "market": {"spot": 39.5, "downside": 30.0, "assumed": false}, "contract": {"kind": "put", "strike": 37.0, "days": 300, "vol": 0.36, "premium": 1.7, "rate": 0.045, "assumed": false}, "dealroom": null, "note": "Depends on debt financing and a state utility commission. A put pays if the deal breaks.", "source": "sample", "form": "8-K", "items": ["1.01"], "indexUrl": null, "docUrl": null, "evidence": {}, "pClose": 0.72, "pPending": 0.66, "drivers": [{"label": "Typical announced deal", "delta": 0.0, "note": "Starting point: most announced public deals close."}, {"label": "US antitrust clearance (HSR)", "delta": -0.01, "note": "Routine filing, rarely blocks a deal on its own."}, {"label": "Second request from antitrust regulators", "delta": -0.1, "note": "A deeper review. Raises delay and block risk."}, {"label": "Sector approvals: State utility commission", "delta": -0.03, "note": "Industry regulators can add conditions or delay."}, {"label": "Deal depends on financing", "delta": -0.06, "note": "If the buyer cannot raise the money the deal can fall away."}, {"label": "Shareholder vote required", "delta": -0.01, "note": "A vote can fail, though most pass."}], "extraction": "sample", "expectedClose": null}, {"id": "s5", "target": "Basil & Rye", "ticker": "BASI", "acquirer": "Fernhill Foods", "filedDaysAgo": 2, "offer": 18.0, "consideration": "cash", "daysToClose": 60, "closePhrase": "expected to close in the first quarter of 2027", "flags": {"hsr": true, "secondRequest": false, "foreign": [], "other": [], "financingCondition": false, "tender": true, "vote": false, "goShop": false, "termFees": ["$9 million (3.0%)"]}, "market": {"spot": 17.75, "downside": 13.0, "assumed": false}, "contract": {"kind": "call", "strike": 17.5, "days": 90, "vol": 0.3, "premium": 1.0, "rate": 0.045, "assumed": false}, "dealroom": {"name": "Basil & Rye", "tagline": "Regional grocery and prepared foods", "hq": "Portland, United States", "sectors": ["Food and beverage", "Retail"], "valuation": null, "valuationYear": null, "fundingTotal": null, "employees": 2200, "status": "operational", "url": null}, "note": "Small cash tender offer. It should close fast, and the spread is thin.", "source": "sample", "form": "8-K", "items": ["1.01"], "indexUrl": null, "docUrl": null, "evidence": {}, "pClose": 0.95, "pPending": 0.89, "drivers": [{"label": "Typical announced deal", "delta": 0.0, "note": "Starting point: most announced public deals close."}, {"label": "US antitrust clearance (HSR)", "delta": -0.01, "note": "Routine filing, rarely blocks a deal on its own."}, {"label": "No financing condition", "delta": 0.01, "note": "The buyer has to close even if its financing is late."}, {"label": "Tender offer", "delta": 0.02, "note": "Shareholders sell directly, so there is no meeting to wait for."}], "extraction": "sample", "expectedClose": null}];
+const SAMPLE = [];
 let DEALS = SAMPLE.slice();
 let STATE = {};            // per deal: the numbers the user can change
 let SELECTED = null;
-let STATUS = {edgar:false, dealroom:false, llm:false, server:false, mode:'sample'};
+let STATUS = {edgar:false, dealroom:false, llm:false, server:false, mode:'live'};
+let SCAN_ERROR = null;
 
 const $ = id => document.getElementById(id);
 const num = v => (v === null || v === undefined || v === '' || isNaN(+v)) ? null : +v;
-const money = x => x === null || x === undefined || !isFinite(x) ? 'n/a' : '$' + x.toFixed(2);
+const money = x => {
+  if (x === null || x === undefined || !isFinite(x)) return '—';
+  const n = Math.abs(x).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return (x < 0 ? '-$' : '$') + n;
+};
 const pct = (x, d = 0) => x === null || x === undefined || !isFinite(x) ? 'n/a' : (x * 100).toFixed(d) + '%';
 const spct = (x, d = 0) => x === null || !isFinite(x) ? 'n/a' : (x >= 0 ? '+' : '-') + Math.abs(x * 100).toFixed(d) + '%';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -276,15 +307,60 @@ function filedAgo(d){
   return null;
 }
 
+function story(d){
+  const f = d.flags || {};
+  const SCALE = 0.09;
+  let z = Math.log(0.9 / 0.1);
+  const lines = [{text: 'Most announced buyouts close. Start at 90%.', p: 0.9}];
+  const add = (text, pts) => { z += pts / SCALE; lines.push({text, p: 1 / (1 + Math.exp(-z))}); };
+  if (f.hsr) add('It needs a routine US antitrust filing. That barely moves the odds.', -0.01);
+  if (f.secondRequest) add('Regulators asked for a deeper review. That is the big drop.', -0.10);
+  if ((f.foreign || []).length) add('It also needs approval from ' + f.foreign.join(', ') + '.', -Math.min(0.03 * f.foreign.length, 0.09));
+  if ((f.other || []).length) add('Another regulator has to sign off: ' + f.other.join(', ') + '.', -Math.min(0.03 * f.other.length, 0.06));
+  if (f.financingCondition === true) add('The buyer still has to borrow the money.', -0.06);
+  if (f.financingCondition === false) add('The buyer does not need new financing to close.', 0.01);
+  if (f.tender) add('Holders can sell straight into a tender, with no meeting to wait for.', 0.02);
+  else if (f.vote) add('Shareholders still have to vote. Most of those votes pass.', -0.01);
+  if (f.goShop) add('The company can look for a higher bid for a while.', -0.01);
+  if ((d.consideration || '') === 'stock') add('Payment is in the buyer’s stock, so the value can move.', -0.02);
+  return {p: 1 / (1 + Math.exp(-z)), lines};
+}
+function stockQuote(s){
+  const offer = s.offer, spot = s.spot, down = s.downside, days = s.dtc, p = s.pClose;
+  if (![offer, spot, down, days, p].every(v => v !== null && isFinite(v) && v > 0)) return null;
+  const rate = s.rate > 0 ? s.rate : 0.045;
+  const years = days / 365;
+  const pv = offer * Math.exp(-rate * years);
+  const span = pv - down;
+  if (Math.abs(span) < 1e-6) return null;
+  const pMarket = (spot - down) / span;
+  const value = p * pv + (1 - p) * down;
+  const charge = Math.max(Math.abs(span) * 0.04, spot * 0.08 * years);
+  const bid = value - charge, ask = value + charge;
+  let action = 'pass';
+  if (spot < bid - 1e-9) action = 'bid';
+  else if (spot > ask + 1e-9) action = 'ask';
+  let size = null;
+  if (action !== 'pass'){
+    const loss = action === 'bid' ? spot - down : offer - spot;
+    if (loss > 0){
+      const shares = Math.floor(Math.min(100000 * 0.02 / loss, 100000 * 0.15 / spot));
+      if (shares > 0) size = {shares, notional: shares * spot, loss, lossDollars: shares * loss};
+    }
+  }
+  return {pv, pMarket, value, charge, bid, ask, action, size};
+}
 function initState(d){
   const dtc = d.daysToClose != null ? d.daysToClose : (daysUntil(d.expectedClose) || 120);
+  const filing = story(d).p;
   const s = {
     kind: d.contract.kind || 'call', strike: d.contract.strike, days: d.contract.days || 90,
     vol: d.contract.vol || 0.4, premium: d.contract.premium, rate: d.contract.rate != null ? d.contract.rate : 0.045,
     spot: d.market.spot, downside: d.market.downside, offer: d.offer, bump: 0,
     consideration: d.consideration || 'cash', dtc,
-    pClose: d.pClose, pPending: d.pPending, resolveManual: false, pCloseManual: false,
-    pBase: d.pClose, newsAdj: 0, news: null, timing: d.timing || null
+    pClose: filing, pPending: Math.min(0.97, Math.max(0.2, filing - 0.06)), resolveManual: false, pCloseManual: false,
+    optStrike: null, optDays: null, optCallBid: null, optCallAsk: null, optPutBid: null, optPutAsk: null, optIv: null,
+    pBase: filing, newsAdj: 0, news: null, timing: d.timing || null
   };
   s.resolve = autoResolve(s);
   return s;
@@ -305,33 +381,83 @@ function compute(s){
 }
 
 /* ---------- Header and list ---------- */
-function paintPills(){
-  const edgar = STATUS.server && STATUS.edgar && STATUS.mode === 'live';
-  const items = [
-    [edgar ? 'EDGAR live' : (STATUS.server && STATUS.edgar ? 'EDGAR unreachable, sample data' : 'EDGAR: sample data'), edgar],
-    [STATUS.dealroom ? 'Dealroom connected' : 'Dealroom not connected', STATUS.dealroom],
-    [STATUS.llm ? 'Agent: Claude reads filings' : 'Agent: text rules', STATUS.llm],
-    [STATUS.model ? 'Close odds: trained on ' + STATUS.model.n.toLocaleString() + ' deals' : 'Close odds: hand-written rules', !!STATUS.model],
-    [STATUS.server ? 'Yahoo Finance news' : 'Yahoo Finance: needs local server', STATUS.server]
-  ];
-  $('pills').innerHTML = items.map(([t, on]) => '<span class="pill ' + (on ? 'on' : '') + '"><i></i>' + esc(t) + '</span>').join('');
+function paintPills(){}
+let APPLIED_SCAN = null;
+function when(iso){
+  if (!iso) return 'Not yet';
+  const m = String(iso).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  return m ? m[1] + ' ' + m[2] + ' UTC' : String(iso);
+}
+function every(seconds){
+  if (!seconds) return '';
+  if (seconds % 3600 === 0) return 'Every ' + (seconds / 3600) + ' h';
+  if (seconds % 60 === 0) return 'Every ' + (seconds / 60) + ' min';
+  return 'Every ' + seconds + ' s';
+}
+function paintStatus(){
+  const box = $('status');
+  if (!box) return;
+  const w = STATUS.workflow || {};
+  const opt = STATUS.options || {};
+  const errs = [w.lastScanError, w.lastPriceError].filter(Boolean);
+  box.innerHTML =
+    '<div class="cell"><small>Last SEC scan</small><b>' + esc(when(w.lastScan)) + '</b><span>' + esc(every(w.scanSeconds) || 'Not scheduled yet') + '</span></div>' +
+    '<div class="cell"><small>Last stock price</small><b>' + esc(when(w.lastPriceRefresh)) + '</b><span>Delayed chart' + (w.priceSeconds ? ', ' + esc(every(w.priceSeconds).toLowerCase()) : '') + '. Not real-time.</span></div>' +
+    '<div class="cell"><small>Active, cash price quoted</small><b>' + (w.activeQuoted == null ? '—' : w.activeQuoted) + '</b><span>From a filing sentence, not a confirmation.</span></div>' +
+    '<div class="cell"><small>Options chain</small><b>' + (opt.available ? 'Available' : 'Unavailable') + '</b><span>' + (opt.http ? 'HTTP ' + opt.http + '. ' : '') + 'Manual bid and ask only.</span></div>' +
+    (errs.length ? '<p class="err">' + esc(errs.join(' ')) + '</p>' : '');
+}
+function priceCaption(d){
+  const p = d.price || {};
+  if (!d.market || d.market.spot == null) return d.marketError || 'Stock price unavailable. Nothing is filled in.';
+  const word = p.freshness === 'stale' ? 'Stale' : p.freshness === 'delayed' ? 'Delayed' : 'Not real-time';
+  return word + ' Yahoo daily chart.' + (p.asOf ? ' Bar date ' + p.asOf + '.' : '') + (p.retrievedAt ? ' Checked ' + when(p.retrievedAt) + '.' : '') + ' Not a real-time quote.';
+}
+async function pollStatus(){
+  try{
+    const st = await getJson('/api/status', 4000);
+    STATUS = Object.assign(STATUS, st, {server:true});
+    paintStatus();
+    const scanAt = st.workflow && st.workflow.lastScan;
+    const editing = document.activeElement && document.activeElement.closest && document.activeElement.closest('input, textarea, select');
+    if (scanAt && scanAt !== APPLIED_SCAN && !editing){
+      const res = await getJson('/api/scan', 120000);
+      if (res.mode === 'live' && res.deals){ APPLIED_SCAN = res.scannedAt || scanAt; setDeals(res.deals); }
+    }
+  }catch(e){}
 }
 
+function filingLabel(d){
+  return {retrieval_failed:'Filing failed', parsing_failed:'Unreadable', no_relevant_filing:'No filing', terms_need_verification:'Check terms'}[d.filingStatus] || 'Check terms';
+}
+function listLabel(d, q){
+  if (q) return {bid:'Buy', ask:'Sell', pass:'Wait'}[q.action];
+  if (d.filingStatus && d.filingStatus !== 'extracted') return filingLabel(d);
+  return 'Need prices';
+}
+function shownDeal(d){
+  if (!d || d.filingStatus !== 'extracted') return false;
+  const s = STATE[d.id];
+  const q = s ? stockQuote(s) : null;
+  return !!(q && (q.action === 'bid' || q.action === 'ask' || q.action === 'pass'));
+}
+function sourceLinks(d){
+  const rows = (d.sources && d.sources.length) ? d.sources : (d.docUrl || d.indexUrl ? [{label:'SEC filing', url:d.docUrl || d.indexUrl}] : []);
+  return rows.map(s => '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.label) + '</a>').join(' · ');
+}
 function paintList(){
-  const rows = DEALS.map(d => {
-    const s = STATE[d.id], out = compute(s), v = out ? verdictOf(out.edge) : 'unknown';
-    const label = {buy:'Buy', fair:'Fair', avoid:'Avoid', unknown:'Needs input'}[v];
-    const ago = filedAgo(d);
-    const spread = s.offer && s.spot ? (s.offer - s.spot) / s.spot : null;
-    return '<button class="item" type="button" data-id="' + esc(d.id) + '" aria-current="' + (d.id === SELECTED) + '">' +
-      '<div class="r1"><span><span class="nm">' + esc(d.target) + '</span>' + (d.ticker ? '<span class="tk num">' + esc(d.ticker) + '</span>' : '') + '</span>' +
-      '<span class="tag ' + v + '">' + label + '</span></div>' +
-      '<div class="r2">Bought by ' + esc(d.acquirer) + '</div>' +
-      '<div class="r3"><span class="num">' + (s.offer ? money(s.offer) + ' offer' : 'no price found') + '</span>' +
-      (spread !== null ? '<span class="num">' + pct(spread, 1) + ' to offer</span>' : '') +
-      (ago !== null ? '<span>' + (ago === 0 ? 'today' : ago + 'd ago') + '</span>' : '') + '</div></button>';
+  const visible = DEALS.filter(shownDeal);
+  const rows = visible.map(d => {
+    const s = STATE[d.id], q = stockQuote(s);
+    return '<button class="item" type="button" data-id="' + esc(d.id) + '"' + (d.id === SELECTED ? ' aria-current="true"' : '') + '>' +
+      '<span class="nm">' + esc(d.target) + '</span>' +
+      '<span class="act ' + q.action + '">' + esc(listLabel(d, q)) + '</span>' +
+      '<span class="tk">' + esc(d.ticker || 'No ticker') + '</span>' +
+      '<span class="px num">' + (s && s.spot ? money(s.spot) : '—') + '</span></button>';
   }).join('');
-  $('list').innerHTML = '<h2>Announced deals (' + DEALS.length + ')</h2>' + (rows || '<div class="empty">No deals found.</div>');
+  const count = visible.length === 1 ? '1 company' : visible.length + ' companies';
+  $('list').innerHTML = '<h2>Companies <span class="count">' + count + '</span></h2><p class="hint">Buy, sell, or wait, and only when the filing stated a cash price and the quote has a stock price and a break price.</p>' +
+    (rows || '<div class="empty">No company has a quoted cash price and a complete quote.</div>');
   $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => select(b.dataset.id)));
 }
 
@@ -353,56 +479,62 @@ function select(id){
   const assumed = !!(d.market.assumed || d.contract.assumed);
   const ago = filedAgo(d);
   const link = d.docUrl || d.indexUrl;
-  $('detail').innerHTML =
-    (d.source === 'sample' ? '<div class="notice">These are sample deals. Company names, prices and contracts are made up to show how the tool works. Scan EDGAR from the local server to see real filings.</div>' : '') +
-    (d.note ? '<div class="notice ' + (d.offer ? '' : 'err') + '">' + esc(d.note) + '</div>' : '') +
-    '<div class="card"><div class="dealhead"><div><h2>' + esc(d.target) + (d.ticker ? ' <span class="num" style="font-size:16px;color:var(--muted);font-weight:400">' + esc(d.ticker) + '</span>' : '') + '</h2>' +
-    '<div class="meta">Acquirer: ' + esc(d.acquirer) + ' &middot; ' + esc(d.form || '') + (ago !== null ? ' filed ' + (ago === 0 ? 'today' : ago + ' days ago') : '') +
-    (link ? ' &middot; <a href="' + esc(link) + '" target="_blank" rel="noopener">Open filing</a>' : '') + '</div></div>' +
-    '<div class="facts" id="facts"></div></div></div>' +
-    '<div id="banner"></div><div id="scen" class="scen"></div>' +
-    '<div class="card"><h3>How the odds and prices line up</h3><p class="sub">Top bar: the chance of each outcome by the time the contract expires. Below: where the stock would trade in each outcome, against your strike.</p><div id="viz"></div></div>' +
-    '<div class="two"><div>' +
-      '<div class="card"><h3>The contract</h3><p class="sub">Type these from your broker, or pull live prices from Yahoo Finance.' + (assumed ? ' Fields with an orange border are placeholders the agent filled in.' : '') + '</p>' +
-      (STATUS.server && d.ticker && d.source !== 'sample' ? '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="mktBtn" type="button">Pull live prices from Yahoo</button><span class="sub" id="mktNote" style="margin:0"></span></div>' : '') +
+  const paid = {cash:'cash', stock:'the buyer’s stock', mixed:'cash and stock'}[d.consideration] || 'cash';
+  const namedBuyer = d.acquirer && d.acquirer !== 'See filing' && d.acquirer !== 'Unknown filer';
+  const priceBit = d.offer ? '<b class="num">' + money(d.offer) + '</b> in ' + paid : 'a price the filing does not state per share';
+  const lede = namedBuyer ? esc(d.acquirer) + ' is buying it for ' + priceBit : 'The filing describes a deal for ' + priceBit;
+    $('detail').innerHTML =
+    '<div class="stage"><div class="read">' +
+    (d.marketError ? '<p class="notice err">' + esc(d.marketError) + '</p>' : '') +
+    (d.note ? '<p class="sub">' + esc(d.note) + '</p>' : '') +
+    '<p class="kicker">' + esc(d.ticker || 'NO TICKER') + '</p>' +
+    '<h2>' + esc(d.target) + '</h2>' +
+    '<p class="lede">' + lede +
+    (ago !== null ? ', announced ' + (ago === 0 ? 'today' : ago + ' days ago') : '') + '.</p>' +
+    (sourceLinks(d) ? '<p class="sub">SEC sources: ' + sourceLinks(d) + '</p>' : '') +
+    (d.statusChanged ? '<p class="notice">A newer filing changed this deal. The previous status is kept only as a note, and the quote was recalculated.</p>' : '') +
+    '<div class="pxbig num" id="px">—</div><p class="pxsub" id="pxsub"></p><p class="sub" id="pxsrc"></p>' +
+    '<div class="stats" id="stats"></div>' +
+    '<div id="track"></div>' +
+    '<h3 style="margin:28px 0 4px">Why this chance</h3><div id="why"></div>' +
+    '<div id="newscard" style="margin-top:28px"></div>' +
+    '<div class="card" style="margin-top:22px"><details><summary>Change the numbers</summary>' +
+      '<p class="sub">The quote above follows these. Leave them alone until you have a better price or a different view.</p>' +
+      (STATUS.server && d.ticker && d.source !== 'sample' ? '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button class="btn ghost" id="mktBtn" type="button">Refresh the delayed chart</button><span class="sub" id="mktNote" style="margin:0"></span></div>' : '') +
       '<div class="form">' +
-        '<div class="field"><label for="f_kind">Type</label><select id="f_kind" data-k="kind"><option value="call">Call</option><option value="put">Put</option></select></div>' +
-        field('strike', 'Strike ($)', '0.5', '', assumed) + field('days', 'Days to expiry', '1', '', assumed) +
-        field('premium', 'Market premium ($/share)', '0.05', 'What the market charges now.', assumed) +
-        field('vol', 'Normal volatility (%)', '1', 'Typical yearly swing without the deal.', assumed) +
-        field('rate', 'Risk-free rate (%)', '0.1', '') +
-      '</div></div>' +
-      '<div class="card" style="margin-top:16px"><h3>The stock and the deal</h3><p class="sub">Prices the stock would trade at in each outcome.</p>' +
-      '<div class="form">' +
-        field('offer', 'Offer price ($)', '0.01', 'Paid per share if the deal closes.') +
-        field('spot', 'Stock price today ($)', '0.01', '', assumed) +
-        field('downside', 'Price if deal breaks ($)', '0.01', 'Where it traded before the news.', assumed) +
-        '<div class="field"><label for="f_consideration">Paid in</label><select id="f_consideration" data-k="consideration"><option value="cash">Cash</option><option value="stock">Stock</option><option value="mixed">Cash and stock</option></select></div>' +
-        field('dtc', 'Expected close (days from now)', '1', 'From the filing, if it states one.') +
-      '</div></div>' +
-    '</div><div>' +
-      '<div class="card"><h3>Your view of the odds</h3><p class="sub">The agent proposes these numbers. Move them if you know better.</p>' +
-        slider('pClose', 'Chance the deal closes', 0, 100, 1, 'Starts from the agent\'s read of the filing.') +
-        slider('resolve', 'Chance it is decided before expiry', 3, 97, 1, 'Set from how expiry compares with the close date. Move it to override.') +
-        slider('pPending', 'If still pending, chance it closes later', 0, 100, 1, 'Sets where the stock trades while the deal is open.') +
-        slider('bump', 'Extra pop above the offer', 0, 15, 0.5, 'For a rival bid or a raised price. Usually zero.') +
+        field('offer', 'Cash offer per share ($)', '0.01', '') +
+        field('spot', 'Stock price today ($)', '0.01', '', d.market.spot == null) +
+        field('downside', 'Price if the deal dies ($)', '0.01', 'Where it traded before the news.', !!d.market.assumed) +
+        field('dtc', 'Days until the deal is expected to close', '1', '') +
       '</div>' +
-      '<div class="card" style="margin-top:16px"><h3>Compare the three prices</h3><div id="compare"></div></div>' +
-    '</div></div>' +
-    '<div class="card" style="margin-top:16px" id="newscard"></div>' +
-    '<div class="card" id="agentread"></div>' +
-    '<div class="card"><details><summary>How the value is worked out</summary>' +
-    '<p>An ordinary Black-Scholes price assumes the stock wanders smoothly. A takeover target does not: it is tied to the offer. So the tool prices the contract three times, once in each outcome, and averages them by how likely each one is.</p>' +
-    '<ul><li><b>Deal closes:</b> the stock trades at the offer price (plus any extra pop). Volatility is low (12% for cash deals).</li>' +
-    '<li><b>Still pending at expiry:</b> the stock trades at a blend of the offer and the fallback price, using your pending odds. Volatility is 18%.</li>' +
-    '<li><b>Deal breaks:</b> the stock drops to its pre-deal price and goes back to its normal volatility.</li></ul>' +
-    '<p>Fair value = chance of each outcome times the contract value in that outcome. The verdict compares that with the premium: Buy if the model value is at least 20% above the price, Fair if within 10% below it, Avoid if lower. These cutoffs are a rule of thumb, not a tested edge.</p></details></div>' +
-    '<p class="fine">Deal Radar is a teaching and research prototype. Its values are model estimates built on rough, editable assumptions. They are not investment advice, and options on deal targets can lose their full value quickly.</p>';
+      slider('pClose', 'Your chance the deal closes', 1, 99, 1, 'Starts from the filing. Move it if you disagree.') +
+    '</details></div>' +
+    '<div class="card" id="optcard"><h3 style="margin:0 0 6px">Calls and puts</h3><div id="optbody"></div></div>' +
+    '<div class="card"><details><summary>If you trade the option instead</summary>' +
+      '<p class="sub">This model runs only after you type a premium above. That number is not a market quote unless you copied one, and the model value is calculated, not a live premium.</p>' +
+      '<div id="banner"></div><div id="scen" class="scen"></div><div id="viz"></div>' +
+      '<div class="form" style="margin-top:12px">' +
+        '<div class="field"><label for="f_kind">Call or put</label><select id="f_kind" data-k="kind"><option value="call">Call</option><option value="put">Put</option></select></div>' +
+        field('strike', 'Strike ($)', '0.5', '', assumed) + field('days', 'Days until the option expires', '1', '', assumed) +
+        field('premium', 'Price of the option ($)', '0.05', '', assumed) +
+        field('vol', 'Usual yearly move (%)', '1', '', assumed) +
+        field('rate', 'Interest rate (%)', '0.1', '') +
+      '</div>' +
+      '<div style="margin-top:8px">' +
+        slider('resolve', 'Chance the deal is decided before the option expires', 3, 97, 1, '') +
+        slider('pPending', 'If it is still open then, chance it closes later', 0, 100, 1, '') +
+        slider('bump', 'Extra pop above the offer (%)', 0, 15, 0.5, 'Usually zero.') +
+      '</div><div id="compare"></div>' +
+    '</details></div>' +
+    '<div class="card" id="more"></div>' +
+    '<p class="fine">A research quote, not an order and not investment advice. The chance is a judgment from the filing, not a model trained on past deals.</p>' +
+    '</div><aside class="ticket" id="ticket"></aside></div>';
 
   bindInputs();
   syncInputs();
   paint();
   paintList();
+  paintOptions(d);
   paintAgent(d);
   paintNews(d);
   const mb = $('mktBtn'); if (mb) mb.addEventListener('click', () => pullMarket(d));
@@ -424,6 +556,9 @@ function onEdit(el){
     s[k] = v;
     if (k === 'resolve') s.resolveManual = true;
     if (k === 'pClose') s.pCloseManual = true;
+    if (k === 'spot') s.spotEdited = true;
+    if (k === 'downside') s.downEdited = true;
+    if (k === 'offer') s.offerEdited = true;
   }
   if ((k === 'days' || k === 'dtc') && !s.resolveManual && s.days > 0 && s.dtc > 0) s.resolve = autoResolve(s);
   syncInputs(el);
@@ -453,21 +588,160 @@ const SC_TEXT = {
   break: ['Deal breaks', 'The buyer walks or regulators say no. The stock falls back to its pre-deal price.']
 };
 
+function optInput(id, label, step, value){
+  return '<div class="field"><label for="' + id + '">' + label + '</label><input id="' + id + '" type="number" step="' + step + '" value="' + (value == null ? '' : value) + '"></div>';
+}
+function paintOptions(d){
+  const box = $('optbody');
+  if (!box) return;
+  const s = STATE[d.id];
+  const cat = d.catalyst || {};
+  box.innerHTML = '<p class="sub">No options chain is loaded. Yahoo’s options endpoint returned HTTP 401 on 19 October 2026, and that refusal is not bypassed. Type a bid and ask from a quote you can see. Results are manual or calculated. They are not live, and this does not place an order.</p>' +
+    '<p class="sub"><b>' + esc(cat.label || 'Merger filing') + '.</b> ' + esc(d.note || 'The close chance is a rules-based reading of the filing. It is not a prediction, and it is not multiplied by an option payoff.') + '</p>' +
+    '<div class="form">' +
+      optInput('o_strike', 'Strike ($)', '0.5', s.optStrike) +
+      optInput('o_days', 'Days to expiration', '1', s.optDays) +
+      optInput('o_cbid', 'Call bid ($)', '0.01', s.optCallBid) +
+      optInput('o_cask', 'Call ask ($)', '0.01', s.optCallAsk) +
+      optInput('o_pbid', 'Put bid ($)', '0.01', s.optPutBid) +
+      optInput('o_pask', 'Put ask ($)', '0.01', s.optPutAsk) +
+      optInput('o_iv', 'Implied volatility, if you have it (%)', '1', s.optIv) +
+    '</div><p class="sub" id="optstatus" style="margin-top:10px"></p><div id="optcmp" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px"></div>';
+  box.querySelectorAll('input').forEach(el => el.addEventListener('input', () => refreshOptions(d)));
+  refreshOptions(d);
+}
+function optVal(id){
+  const el = $(id);
+  if (!el || el.value === '') return null;
+  const n = Number(el.value);
+  return isFinite(n) ? n : null;
+}
+let optTimer = null;
+function refreshOptions(d){
+  const s = STATE[d.id];
+  s.optStrike = optVal('o_strike');
+  s.optDays = optVal('o_days');
+  s.optCallBid = optVal('o_cbid');
+  s.optCallAsk = optVal('o_cask');
+  s.optPutBid = optVal('o_pbid');
+  s.optPutAsk = optVal('o_pask');
+  s.optIv = optVal('o_iv');
+  clearTimeout(optTimer);
+  optTimer = setTimeout(() => postOptions(d), 200);
+}
+async function postOptions(d){
+  if (SELECTED !== d.id) return;
+  const s = STATE[d.id];
+  const leg = (bid, ask) => ({strike: s.optStrike, days: s.optDays, bid, ask, iv: s.optIv == null ? null : s.optIv / 100, multiplier: 100, deliverable: 100});
+  try{
+    const r = await fetch('/api/options', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      spot: s.spot, offer: s.offer, downside: s.downside, pClose: s.pClose, filingStatus: d.filingStatus, note: d.note, flags: d.flags, catalyst: d.catalyst,
+      call: leg(s.optCallBid, s.optCallAsk), put: leg(s.optPutBid, s.optPutAsk)})});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    renderOptions(await r.json());
+  }catch(e){
+    const st = $('optstatus');
+    if (st) st.textContent = 'The local options calculation did not answer.';
+  }
+}
+function renderOptions(data){
+  const host = $('optcmp'), st = $('optstatus');
+  if (!host) return;
+  if (st) st.textContent = data.pCloseNote || '';
+  host.innerHTML = ['call', 'put'].map(side => optionCard(data[side])).join('');
+}
+function optionCard(c){
+  if (!c) return '';
+  const title = c.kind === 'put' ? 'Put' : 'Call';
+  const signals = (c.signals || []).map(sig => '<div class="notice">' + esc(sig.label) + '. ' + esc(sig.reason) + '</div>').join('');
+  const scenarios = (c.scenarios || []).map(sc => '<div class="row"><span>' + esc(sc.name) + '</span><b>' + money(sc.contract) + '</b></div>').join('');
+  const greeks = c.greeks
+    ? '<p class="sub">Calculated, not from an exchange. Delta ' + c.greeks.delta + ', gamma ' + c.greeks.gamma + ', theta ' + c.greeks.theta + ' per day, vega ' + c.greeks.vega + ' per volatility point.</p>'
+    : '<p class="sub">Implied volatility and Greeks are unavailable.</p>';
+  return '<div><h3 style="margin:0 0 6px">' + title + '</h3><p class="sub">' + esc(c.quoteState) + '. Not a live opportunity.</p>' +
+    (c.nonstandardNote ? '<p class="notice err">' + esc(c.nonstandardNote) + '</p>' : '') +
+    '<div class="row"><span>Ask used as entry</span><b>' + (c.premium != null ? money(c.premium) : '—') + '</b></div>' +
+    '<div class="row"><span>Break-even at expiration</span><b>' + (c.breakEven != null ? money(c.breakEven) : '—') + '</b></div>' +
+    '<div class="row"><span>Most you can lose</span><b>' + (c.maxLoss != null ? money(c.maxLoss) : '—') + '</b></div>' +
+    scenarios + greeks + signals +
+    (c.errors && c.errors.length ? '<p class="sub">' + esc(c.errors.join(' ')) + '</p>' : '') + '</div>';
+}
+function paintQuote(d, s){
+  const q = stockQuote(s);
+  const filing = story(d);
+  const your = s.pClose;
+  if (!q){
+    $('px').textContent = s.spot ? money(s.spot) : '—';
+    $('pxsub').className = 'pxsub pass';
+    $('pxsub').textContent = listLabel(d, null);
+    if ($('pxsrc')) $('pxsrc').textContent = priceCaption(d);
+    $('stats').innerHTML = '';
+    $('track').innerHTML = '';
+    $('ticket').innerHTML = '<h3>What to do</h3><div class="verb pass"><strong>' + esc(listLabel(d, null)) + '</strong><em>' +
+      esc(d.note || d.marketError || 'The quote needs a cash offer per share, today’s price, and the price if the deal dies.') + '</em></div>';
+  } else {
+    const verb = {bid:'Buy', ask:'Sell', pass:'Wait'}[q.action];
+    const limit = q.action === 'bid' ? 'Do not pay more than ' + money(q.bid) : q.action === 'ask' ? 'Do not sell cheaper than ' + money(q.ask) : 'The stock sits between ' + money(q.bid) + ' and ' + money(q.ask);
+    $('px').textContent = money(s.spot);
+    $('pxsub').className = 'pxsub ' + q.action;
+    $('pxsub').textContent = verb + ' · ' + limit.charAt(0).toLowerCase() + limit.slice(1);
+    if ($('pxsrc')) $('pxsrc').textContent = priceCaption(d);
+    const marketLabel = q.pMarket > 1 ? 'Above the offer' : q.pMarket < 0 ? 'Below the break' : pct(q.pMarket, 0);
+    $('stats').innerHTML =
+      '<div class="stat"><small>Your chance</small><b>' + pct(your, 0) + '</b><span>' + (s.pCloseManual ? 'You set this' : 'From the filing') + '</span></div>' +
+      '<div class="stat"><small>The price assumes</small><b>' + marketLabel + '</b><span>From the delayed chart</span></div>' +
+      '<div class="stat"><small>Your value</small><b>' + money(q.value) + '</b><span>Per share</span></div>';
+    const marks = [
+      ['Dies', s.downside, ''],
+      ['Buy max', q.bid, ''],
+      ['Now', s.spot, 'now'],
+      ['Sell min', q.ask, ''],
+      ['Closes', s.offer, '']
+    ];
+    const lo = Math.min(s.downside, q.bid, s.spot, q.ask, s.offer);
+    const hi = Math.max(s.downside, q.bid, s.spot, q.ask, s.offer);
+    const span = hi - lo || 1;
+    $('track').innerHTML = '<div class="map" role="img" aria-label="Price if the deal dies, your buy price, the stock today, your sell price, and the offer"><div class="map-line"></div>' +
+      marks.map(([, val, cls]) => '<div class="mark ' + cls + '" style="left:' + ((val - lo) / span * 100) + '%"><i></i></div>').join('') +
+      '</div><div class="rows">' +
+      '<div><span>If the deal dies</span><b>' + money(s.downside) + '</b></div>' +
+      '<div><span>Highest price to buy</span><b>' + money(q.bid) + '</b></div>' +
+      '<div class="you"><span>Stock today</span><b>' + money(s.spot) + '</b></div>' +
+      '<div><span>Lowest price to sell</span><b>' + money(q.ask) + '</b></div>' +
+      '<div><span>If the deal closes</span><b>' + money(s.offer) + '</b></div></div>';
+    let say = 'The stock is using a ' + pct(Math.min(1, Math.max(0, q.pMarket)), 0) + ' chance. Yours is ' + pct(your, 0) + '.';
+    if (q.pMarket > 1 && s.spot > s.offer + 0.009) say = 'The stock is above the cash offer, so the price assumes a higher bid or a stale offer.';
+    else if (q.pMarket > 1 && s.downside >= s.spot - 0.02) say = 'The price before this filing is already about where the stock trades, so this is probably not the first announcement. The chance implied by the stock is not usable.';
+    else if (q.pMarket > 1) say = 'The stock is at the offer. Waiting until the close makes that cash worth less, so the price assumes a higher bid or a faster close.';
+    if (q.size){
+      say += q.action === 'bid'
+        ? ' Buy ' + q.size.shares.toLocaleString() + ' shares (' + money(q.size.notional) + '). If the deal dies, that loses about ' + money(q.size.lossDollars) + '.'
+        : ' Sell ' + q.size.shares.toLocaleString() + ' shares (' + money(q.size.notional) + '). If the deal closes, that loses about ' + money(q.size.lossDollars) + '.';
+    } else if (q.action === 'pass') {
+      say += ' The gap is smaller than the cushion for being wrong or for waiting, so there is no order.';
+    }
+    $('ticket').innerHTML = '<h3>What to do</h3><div class="verb ' + q.action + '" role="status"><strong>' + verb + '</strong><em>' + limit + '</em></div>' +
+      '<div class="line"><span>Stock today</span><b>' + money(s.spot) + '</b></div>' +
+      '<div class="line"><span>Your value</span><b>' + money(q.value) + '</b></div>' +
+      '<div class="line"><span>' + (q.action === 'bid' ? 'Buy up to' : q.action === 'ask' ? 'Sell down to' : 'Your range') + '</span><b>' +
+      (q.action === 'pass' ? money(q.bid) + ' – ' + money(q.ask) : money(q.action === 'bid' ? q.bid : q.ask)) + '</b></div>' +
+      '<p class="say">' + say + '</p><p class="fine">This does not place an order.</p>';
+  }
+  const lines = filing.lines.map(line => '<div><span>' + esc(line.text) + '</span><b>' + pct(line.p, 0) + '</b></div>').join('');
+  const edited = s.pCloseManual ? '<p class="sub">You moved the chance to ' + pct(your, 0) + '. The filing, before that, said ' + pct(filing.p, 0) + '.</p>' : '';
+  $('why').innerHTML = edited + '<div class="rows">' + lines + '</div>';
+}
+
 function paint(){
   const d = DEALS.find(x => x.id === SELECTED), s = STATE[SELECTED], out = compute(s);
   const kind = s.kind === 'put' ? 'put' : 'call';
-
-  // facts strip
-  const spread = s.offer && s.spot ? (s.offer - s.spot) / s.spot : null;
-  $('facts').innerHTML =
-    '<div class="fact"><small>Offer</small><b>' + money(s.offer) + '</b></div>' +
-    '<div class="fact"><small>Stock today</small><b>' + money(s.spot) + '</b></div>' +
-    '<div class="fact"><small>Gap to offer</small><b>' + (spread !== null ? spct(spread, 1) : 'n/a') + '</b></div>' +
-    '<div class="fact"><small>Paid in</small><b style="font-family:var(--body)">' + ({cash:'Cash', stock:'Stock', mixed:'Cash + stock'}[s.consideration] || 'n/a') + '</b></div>';
+  paintQuote(d, s);
 
   if (!out){
-    $('banner').innerHTML = '<div class="banner unknown"><div><div class="lab">Verdict</div><div class="big">Needs input</div><p>Fill in the offer, stock price, fallback price, strike, expiry, volatility and premium. The verdict appears once every number is above zero.</p></div></div>';
-    $('scen').innerHTML = ''; $('viz').innerHTML = ''; $('compare').innerHTML = '<p class="sub">Waiting for inputs.</p>';
+    if ($('banner')) $('banner').innerHTML = '<p class="sub">Add the option price, strike, and expiry to see this.</p>';
+    if ($('scen')) $('scen').innerHTML = '';
+    if ($('viz')) $('viz').innerHTML = '';
+    if ($('compare')) $('compare').innerHTML = '';
     return;
   }
 
@@ -567,9 +841,9 @@ function ladder(s, out, kind){
 function paintNews(d){
   const box = $('newscard'), s = STATE[d.id];
   if (!box) return;
-  const head = '<h3>Live news (Yahoo Finance)</h3>';
+  const head = '<h3>News</h3>';
   if (!STATUS.server || !d.ticker || d.source === 'sample'){
-    box.innerHTML = head + '<p class="sub">' + (d.source === 'sample' ? 'Sample companies are fictional, so there is no news to read. Run the local server and scan EDGAR to see headlines for real deals.' :
+    box.innerHTML = head + '<p class="sub">' + (d.source === 'sample' ? 'No news. This company is made up.' :
       !d.ticker ? 'This filing has no ticker, so there is no feed to read.' : 'Needs the local server.') + '</p>';
     return;
   }
@@ -590,7 +864,7 @@ function applyNews(d){
 }
 function renderNews(d, r){
   const s = STATE[d.id], box = $('newscard');
-  const head = '<h3>Live news (Yahoo Finance)</h3>';
+  const head = '<h3>News</h3>';
   if (r.error){ box.innerHTML = head + '<p class="sub">' + esc(r.error) + '</p>'; return; }
   let flags = '';
   if (r.flags && r.flags.ended) flags += '<div class="notice err">A headline suggests this deal may have ended. Confirm in the filings before trading.</div>';
@@ -617,7 +891,7 @@ async function pullMarket(d){
     if (r.option){ fill('strike', r.option.strike, 'strike'); fill('days', r.option.days, 'expiry'); fill('premium', r.option.premium, 'premium'); }
     if (!s.resolveManual) s.resolve = autoResolve(s);
     syncInputs(); paint(); paintList();
-    note.textContent = 'Filled ' + (got.join(', ') || 'nothing') + ' as of ' + r.asOf + '.' + (r.option ? ' Option expiring ' + r.option.expiry + ', bid ' + money(r.option.bid) + ', ask ' + money(r.option.ask) + '.' : ' ' + (r.optionNote || ''));
+    note.textContent = 'Filled ' + (got.join(', ') || 'nothing') + ' from the delayed Yahoo chart, bar date ' + (r.asOf || 'unknown') + '. Not a real-time quote.' + (r.option ? '' : ' ' + (r.optionNote || ''));
   }catch(e){ note.textContent = 'Could not reach Yahoo Finance.'; }
   finally{ btn.disabled = false; }
 }
@@ -649,50 +923,53 @@ function paintAgent(d){
     ? 'The close odds come from a model trained on ' + M.n.toLocaleString() + ' past deals (' + M.from.slice(0, 4) + ' to ' + M.to.slice(0, 4) + '). On the newest deals it had never seen, its Brier score was ' + M.brier.toFixed(3) + ', against ' + M.baseBrier.toFixed(3) + ' for always guessing the historical close rate and ' + M.rulesBrier.toFixed(3) + ' for the old hand-written rules (lower is better).'
     : 'The close odds come from hand-written rules, not a trained model. Train one with the scripts in the training folder.';
 
-  $('agentread').innerHTML =
-    '<div class="two" style="gap:24px"><div><h3>What the agent read in the filing</h3><p class="sub">' + esc(how) + '. ' + esc(src) + ' Each line below moved the chance that the deal closes, starting from the typical announced deal.</p>' +
-    '<ul class="drv">' + drivers + '</ul>' +
-    '<p class="sub" style="margin-top:10px">Result: <b class="num">' + pct(d.pClose, 1) + '</b> chance of closing (editable above).</p>' +
+  const box = $('more');
+  if (!box) return;
+  box.innerHTML = '<details><summary>Where the numbers came from</summary>' +
+    '<p class="sub">' + esc(how) + '. ' + esc(src) + '</p>' +
     (chips.length ? '<div class="chips">' + chips.map(c => '<span class="chip">' + esc(c) + '</span>').join('') + '</div>' : '') +
-    quotes + (d.closePhrase ? '<blockquote>' + esc(d.closePhrase) + '</blockquote>' : '') + '</div>' +
-    '<div id="dealroom">' + dealroomCard(d) + '</div></div>';
-  const btn = $('drLookup');
-  if (btn) btn.addEventListener('click', () => lookupDealroom(d));
-}
-function dealroomCard(d){
-  const r = d.dealroom;
-  const head = '<h3>Company profile (Dealroom)</h3>';
-  if (r){
-    const rows = [
-      ['Based in', r.hq], ['Sectors', (r.sectors || []).join(', ')],
-      ['Last valuation', r.valuation ? '$' + (r.valuation / 1e9).toFixed(1) + 'B' + (r.valuationYear ? ' (' + r.valuationYear + ')' : '') : null],
-      ['Total funding', r.fundingTotal ? '$' + (r.fundingTotal / 1e6).toFixed(0) + 'M' : null],
-      ['Employees', r.employees ? r.employees.toLocaleString() : null], ['Status', r.status]
-    ].filter(x => x[1]);
-    return head + '<p class="sub">' + esc(r.tagline || r.name) + '</p>' + rows.map(x => '<div class="row"><span>' + x[0] + '</span><b style="font-family:var(--body)">' + esc(x[1]) + '</b></div>').join('') +
-      '<p class="sub" style="margin-top:10px">Dealroom is a guide to who the target is. It does not change the odds above.</p>';
-  }
-  if (STATUS.dealroom && d.source !== 'sample')
-    return head + '<p class="sub">Look this company up on Dealroom for funding, valuation and headcount.</p><button class="btn" id="drLookup" type="button">Look up on Dealroom</button>';
-  return head + '<p class="sub">' + (STATUS.dealroom ? 'No Dealroom profile for this sample company.' :
-    'Not connected. Add your Dealroom keys to the .env file and restart the server to see funding, valuation and headcount here. Dealroom mostly covers private and venture-backed companies, so large listed targets may not appear.') + '</p>';
-}
-async function lookupDealroom(d){
-  const box = $('dealroom'); box.innerHTML = '<h3>Company profile (Dealroom)</h3><p class="sub">Looking up...</p>';
-  try{
-    const res = await (await fetch('/api/enrich?name=' + encodeURIComponent(d.target))).json();
-    if (res.company) d.dealroom = res.company;
-    box.innerHTML = res.company ? dealroomCard(d) : '<h3>Company profile (Dealroom)</h3><p class="sub">No match on Dealroom' + (res.error ? ' (' + esc(res.error) + ')' : '') + '. Public companies often are not covered.</p>';
-  }catch(e){ box.innerHTML = '<h3>Company profile (Dealroom)</h3><p class="sub">The lookup failed.</p>'; }
+    quotes + (d.closePhrase ? '<blockquote>' + esc(d.closePhrase) + '</blockquote>' : '') +
+    '</details>';
 }
 
 /* ---------- Loading ---------- */
+function takeServerPrices(d){
+  const s = STATE[d.id];
+  if (!s){ STATE[d.id] = initState(d); return; }
+  if (!s.spotEdited && d.market) s.spot = d.market.spot;
+  if (!s.downEdited && d.market) s.downside = d.market.downside;
+  if (!s.offerEdited) s.offer = d.offer;
+}
 function setDeals(list){
+  const editing = document.activeElement && document.activeElement.closest && document.activeElement.closest('#detail');
+  const keepOpen = editing && SELECTED;
   DEALS = list;
-  DEALS.forEach(d => { if (!STATE[d.id]) STATE[d.id] = initState(d); });
-  if (!DEALS.find(d => d.id === SELECTED)) SELECTED = DEALS.length ? DEALS[0].id : null;
+  DEALS.forEach(takeServerPrices);
+  if (!shownDeal(DEALS.find(d => d.id === SELECTED))){
+    let best = null, gap = -1, ready = null, spread = -1;
+    DEALS.forEach(d => {
+      if (!shownDeal(d)) return;
+      const s = STATE[d.id], q = stockQuote(s);
+      const w = Math.abs(s.spot - s.downside);
+      if (w > spread){ ready = d.id; spread = w; }
+      if (q.action === 'pass') return;
+      const g = Math.abs(q.value - s.spot);
+      if (g > gap){ best = d.id; gap = g; }
+    });
+    const visible = DEALS.filter(shownDeal);
+    SELECTED = best || ready || (visible[0] && visible[0].id) || null;
+  }
   paintList();
-  if (SELECTED) select(SELECTED); else $('detail').innerHTML = '<div class="card empty">No deals to show.</div>';
+  if (SELECTED && !keepOpen) select(SELECTED);
+  else if (SELECTED) paint();
+  else $('detail').innerHTML = '<div class="card empty">' + (SCAN_ERROR || 'No filings to show.') + '</div>';
+}
+function showScanError(msg){
+  SCAN_ERROR = msg;
+  DEALS = [];
+  SELECTED = null;
+  paintList();
+  $('detail').innerHTML = '<div class="card"><h2>Filings are unavailable</h2><p>' + esc(msg) + '</p><p class="sub">No practice companies are substituted.</p></div>';
 }
 async function getJson(url, ms){
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
@@ -705,13 +982,15 @@ async function scan(refresh){
   try{
     const res = await getJson('/api/scan' + (refresh ? '?refresh=1' : ''), 120000);
     STATUS.mode = res.mode;
-    if (res.mode === 'live' && res.deals.length){ setDeals(res.deals); }
-    else if (res.mode === 'live'){ note('EDGAR returned no merger filings in this window.'); }
-    else { note('Showing sample deals. ' + (res.reason || '')); }
+    APPLIED_SCAN = res.scannedAt || APPLIED_SCAN;
+    if (res.mode === 'live' && res.deals && res.deals.length){ SCAN_ERROR = null; setDeals(res.deals); }
+    else if (res.mode === 'live'){ showScanError('EDGAR returned no merger filings in this window.'); }
+    else { showScanError(res.reason || 'The SEC filing search failed.'); }
+    pollStatus();
   }catch(e){
-    note('Live scanning needs the local server. Run python3 server.py on your computer, then open the address it prints. Until then you are looking at sample deals.', true);
+    showScanError('The local server did not answer. Run python3 server.py and open http://127.0.0.1:8000.');
   }finally{
-    btn.disabled = false; btn.textContent = 'Scan EDGAR'; paintPills();
+    btn.disabled = false; btn.textContent = 'Scan filings'; paintPills();
   }
 }
 function note(msg, err){
@@ -724,15 +1003,20 @@ function note(msg, err){
 }
 
 (async function start(){
-  setDeals(SAMPLE.slice());
+  paintList();
+  $('detail').innerHTML = '<div class="card empty">Reading SEC filings…</div>';
   paintPills();
   $('scanBtn').addEventListener('click', () => scan(true));
   try{
     const st = await getJson('/api/status', 2500);
     STATUS = Object.assign(STATUS, st, {server:true});
-    setDeals(DEALS.slice());
     paintPills();
-    if (st.edgar) scan(false);
-  }catch(e){ paintPills(); }
+    paintStatus();
+    await scan(false);
+    setInterval(pollStatus, 60000);
+  }catch(e){
+    showScanError('The local server did not answer. Run python3 server.py and open http://127.0.0.1:8000.');
+    paintPills();
+  }
 })();
 </script>

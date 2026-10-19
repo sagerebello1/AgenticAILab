@@ -7,13 +7,12 @@ option on the target company looks cheap, fair or expensive. It is a research pr
 
     python3 server.py        # then open http://127.0.0.1:8000
 
-Python 3.9 or newer, standard library only. With no setup it runs on five made-up sample deals. To go live:
+Python 3.9 or newer, standard library only. The running app uses public SEC filings and public Yahoo prices. It does not call a paid API, and it does not fill the screen with fictional companies when a source is down.
 
-1. Copy `.env.example` to `.env`.
-2. Set `EDGAR_USER_AGENT` to your name and email. The SEC requires this and needs no key.
-3. Optional: add Dealroom keys (`DEALROOM_CLIENT_ID`, `DEALROOM_CLIENT_SECRET`) and an `ANTHROPIC_API_KEY`.
+1. Create `.env` next to `server.py`.
+2. Set `EDGAR_USER_AGENT` to your name and email. The SEC requires this contact and does not require a key or a credit card.
 
-`python3 make_standalone.py` writes `dist/deal-radar-demo.html`, a single file that works offline in sample mode.
+If EDGAR or Yahoo does not answer, the page shows that error and leaves the list empty.
 
 ## Train the close-probability model on past EDGAR deals
 
@@ -53,8 +52,9 @@ When a deal has a ticker, the interface reads Yahoo's public headline feed and s
 amount (at most 1.5 log-odds points) using hand-set rules, for example "FTC sues to block" (down) or "shareholders
 approve" (up). Those weights are judgments, not trained, and every headline that moved the odds is listed so you can
 overrule it. "Pull live prices from Yahoo" fills today's price, the last close before the announcement (the "deal
-breaks" price), pre-announcement volatility and, if `pip install yfinance` is done, a real option quote. Yahoo has no
-official API for these, so they can break or rate-limit without notice.
+breaks" price). Yahoo has no official API for these, so they can break or rate-limit without notice.
+Yahoo's options-chain endpoint returned HTTP 401 on 19 October 2026. The app does not work around that,
+and it does not invent a premium. Type a bid and ask if you want the call and put scenarios.
 
 ## How the value is worked out
 
@@ -81,16 +81,15 @@ at least 20% above the premium, Fair if no more than 10% below, otherwise Avoid.
 - `features.py` turns a filing into model inputs; `model.py` scores with the trained weights
 - `training/` collect.py, label.py, train.py (see above)
 - `news.py` Yahoo headlines to an odds adjustment; `market.py` Yahoo prices, volatility and option quotes
-- `llm.py` optional: a Claude model reads the filing instead of the text rules
-- `dealroom.py` optional: company profile lookup
 - `pricing.py` Black-Scholes and the three-scenario model
-- `sample_data.py` fictional deals
+- `llm.py` and `dealroom.py` are not imported by the server. Both need a paid account, so the app does not call them.
+- `sample_data.py` holds fictional deals used only by `python3 quote.py` to check the quote math. The server refuses those ids.
 
 ## What is and is not tested
 
 - Tested: pricing math (textbook values, put-call parity, JS vs Python), term extraction on synthetic filing text, the server in sample mode, the interface in a browser, the training code on synthetic data, the labelling rules on hand-made filing histories, the news rules on made-up headlines, and the live scan path with EDGAR and Yahoo mocked.
 - Not tested: real EDGAR, Yahoo and Dealroom traffic, the Claude extraction step, and training on real data. The build environment could not reach any of them, so no real model has been trained and no accuracy figure exists yet. Expect to adjust queries or field names on first run.
-- EDGAR full-text search is not an officially documented SEC API and can change.
-- Dealroom (dealroom.co) covers mostly private and venture-backed companies, so large listed targets often have no match. It is not the same product as DealRoom (dealroom.net).
-- Neither source has stock or option prices. Live deals start with placeholder market numbers, marked in orange, that you must replace with broker quotes.
+- EDGAR full-text search is not an officially documented SEC API and can change. The SEC's published limit is 10 requests per second, and this client waits 0.12 seconds between requests.
+- Yahoo's chart and headline feeds are public and unofficial. They can change or rate-limit. A failure is shown on the deal; a price is not invented.
+- Dealroom and Anthropic are paid services. They are not called.
 - The close probabilities are judgment-based starting points, not a fitted model.

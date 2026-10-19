@@ -1,7 +1,7 @@
-"""Optional language-model step for the agent.
+"""Not used by the server. Anthropic bills for this API, so Deal Radar does not call it.
 
 Rules (terms.py) are fast and free but brittle: merger agreements phrase things many ways.
-When ANTHROPIC_API_KEY is set, this module asks a Claude model to read the filing and return
+This module can ask a Claude model to read the filing and return
 the same fields as terms.extract_terms, as JSON. Anything it cannot find stays null, and the
 app then falls back to what the rules found. The probability rules in terms.py are applied
 to the result either way, so the model only reads the filing; it does not set the odds.

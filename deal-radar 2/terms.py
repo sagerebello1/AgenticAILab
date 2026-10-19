@@ -18,6 +18,7 @@ HALF_END = {"first": (6, 30), "second": (12, 31)}
 
 PRICE_RE = re.compile(
     r"\$\s?(\d{1,4}(?:\.\d{1,4})?)\s+(?:in\s+cash\s*,?\s*(?:without\s+interest\s*,?\s*)?)?per\s+share", re.I)
+PAR_OR_ISSUE_RE = re.compile(r"par\s+value|issue\s+price", re.I)
 CLOSE_Q_RE = re.compile(
     r"(?:expected|anticipated)\s+to\s+(?:close|be\s+completed|be\s+consummated|occur)\s+"
     r"(?:in|during|by|before|on\s+or\s+before)?\s*(?:the\s+)?(first|second|third|fourth)\s+(quarter|half)"
@@ -83,17 +84,74 @@ def _close_date(text):
     return None, None
 
 
+def offer_mentions(text):
+    """Cash-style per-share prices, skipping par value and a buyer's stock issue price.
+
+    Each item is (price, sentence, mentioned_with_cash).
+    """
+    found = []
+    for m in PRICE_RE.finditer(text or ""):
+        price = float(m.group(1))
+        if not (0.5 <= price <= 5000):
+            continue
+        prefix = text[max(0, m.start() - 24):m.start()]
+        if PAR_OR_ISSUE_RE.search(prefix):
+            continue
+        window = text[max(0, m.start() - 40):m.end() + 40]
+        found.append((price, _snip(text, m), bool(re.search(r"in\s+cash", window, re.I))))
+    return found
+
+
+def best_offer(text):
+    """Return (price, sentence) or (None, None). A price said to be in cash wins."""
+    mentions = offer_mentions(text)
+    pool = [m for m in mentions if m[2]] or mentions
+    if not pool:
+        return None, None
+    prices = [p for p, _, _ in pool]
+    price = max(set(prices), key=lambda p: (prices.count(p), -prices.index(p)))
+    sentence = next(s for p, s, _ in pool if p == price)
+    return price, sentence
+
+
+def filing_status(text, offer, download_error, had_document):
+    """One of retrieval_failed, parsing_failed, no_relevant_filing, terms_need_verification, extracted."""
+    if download_error and not (text or "").strip():
+        return "retrieval_failed", "The SEC filing could not be downloaded. " + download_error
+    if not had_document:
+        return "no_relevant_filing", "No merger filing document was attached to this search hit."
+    if not (text or "").strip():
+        return "parsing_failed", "The filing downloaded, but no readable text was found."
+    if offer is None:
+        return "terms_need_verification", explain_missing_offer(text)
+    return "extracted", ""
+
+
+def explain_missing_offer(text):
+    """Why a read filing still has no cash price per share. The wording comes from the text."""
+    body = text or ""
+    if re.search(r"mutually terminate|terminate the merger agreement|termination agreement", body, re.I):
+        return "This filing ends a merger agreement. It does not state a new cash price per share."
+    if re.search(r"completed its previously announced merger|completion of acquisition or disposition", body, re.I):
+        return "This filing reports that a merger has already closed. It does not restate a cash price per share."
+    if re.search(r"purchase price of\s+\$[\d,.]+\s+billion|\$[\d,.]+\s+million(?:\s+\w+){0,3}\s+purchase price", body, re.I):
+        return "The filing states a purchase price for another company, not a cash price per share of this stock."
+    if re.search(r"amendment(?:\s+no\.?\s*\d+)?\s+to\s+(?:the\s+)?agreement and plan of merger|merger agreement amendment", body, re.I):
+        return "This filing amends an earlier merger agreement and does not restate a cash price per share."
+    if re.search(r"stock consideration", body, re.I):
+        return "The filing describes stock consideration and does not state a cash price per share for this company."
+    return "A merger filing was found and read. It does not state a cash price per share for this stock."
+
+
 def extract_terms(text):
     """Pull deal terms out of filing text. Every fact keeps the sentence it came from."""
     out = {"offer": None, "consideration": None, "expectedClose": None, "closePhrase": None,
            "parent": None, "company": None, "evidence": {}, "flags": {}}
 
-    prices = [float(m.group(1)) for m in PRICE_RE.finditer(text) if 0.5 <= float(m.group(1)) <= 5000]
-    if prices:
-        best = max(set(prices), key=lambda p: (prices.count(p), -prices.index(p)))
-        out["offer"] = best
-        m = next(m for m in PRICE_RE.finditer(text) if float(m.group(1)) == best)
-        out["evidence"]["offer"] = _snip(text, m)
+    offer, sentence = best_offer(text)
+    if offer is not None:
+        out["offer"] = offer
+        out["evidence"]["offer"] = sentence
 
     cash = bool(re.search(r"\bin\s+cash\b|cash\s+consideration|all[- ]cash", text, re.I))
     stock = bool(re.search(r"exchange\s+ratio|shares\s+of\s+(?:Parent|Acquirer|Buyer)\s+common\s+stock", text, re.I))

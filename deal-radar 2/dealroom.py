@@ -1,4 +1,6 @@
-"""Dealroom connector (dealroom.co, the venture and startup data provider).
+"""Not used by the server. Dealroom requires a paid account, so Deal Radar does not call it.
+
+Dealroom connector (dealroom.co, the venture and startup data provider).
 
 Dealroom's REST API uses OAuth2 client credentials:
   1. POST https://accounts.dealroom.co/oauth/token with client_id, client_secret, audience and

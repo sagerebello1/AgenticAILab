@@ -1,13 +1,12 @@
-"""Live prices from Yahoo Finance: today's stock price, the undisturbed price from before the
-announcement, normal volatility, and (optionally) a real option quote.
+"""Stock prices from Yahoo Finance's daily chart: the latest close and the close before the
+announcement.
 
 Prices come from Yahoo's chart endpoint (query1.finance.yahoo.com), which is unofficial and may
-change or rate-limit. Option quotes need the optional `yfinance` package (pip install yfinance),
-which handles Yahoo's cookie and crumb requirements. Without it you still get prices and
-volatility, and you type the option premium in yourself.
+change or rate-limit. A daily bar is delayed. It is not a real-time quote. Option chains are not
+retrieved: Yahoo's options endpoint returned HTTP 401, and that check is not bypassed.
 
 What each number means for the model
-  spot       latest price. Used as today's stock price.
+  spot       latest daily close. Delayed, not a real-time quote.
   downside   last close BEFORE the announcement date. This is the "deal breaks" price. If the news
              leaked early this is too high, so check it against the chart.
   vol        annualised volatility of daily returns over the 60 trading days before the announcement,
@@ -16,6 +15,8 @@ What each number means for the model
 """
 import json
 import math
+import os
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,6 +30,22 @@ class MarketError(Exception):
     pass
 
 
+def _ssl_context():
+    """Use the system certificate bundle when this Python has none of its own.
+
+    The python.org macOS installer often cannot verify HTTPS until its
+    certificates are installed. /etc/ssl/cert.pem is the system bundle and
+    needs no extra package.
+    """
+    ca = "/etc/ssl/cert.pem"
+    if os.path.exists(ca):
+        try:
+            return ssl.create_default_context(cafile=ca)
+        except ssl.SSLError:
+            pass
+    return ssl.create_default_context()
+
+
 def history(ticker, start, end, timeout=15):
     """Daily closes as a list of (date, close), oldest first."""
     q = urllib.parse.urlencode({"period1": int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp()),
@@ -36,7 +53,7 @@ def history(ticker, start, end, timeout=15):
                                 "interval": "1d", "events": "div,splits"})
     req = urllib.request.Request(CHART % (urllib.parse.quote(ticker), q), headers={"User-Agent": UA})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as r:
             data = json.loads(r.read())
     except (urllib.error.URLError, json.JSONDecodeError) as e:
         raise MarketError("Could not read Yahoo prices: %s" % e)
@@ -70,28 +87,13 @@ def stats(series, filed_on):
 
 
 def contract(ticker, kind, strike, days):
-    """Nearest listed option to the requested strike and days to expiry, via yfinance if installed."""
-    try:
-        import yfinance as yf
-    except ImportError:
-        return None, "Install yfinance (pip install yfinance) to pull option quotes."
-    try:
-        t = yf.Ticker(ticker)
-        exps = t.options
-        if not exps:
-            return None, "Yahoo lists no options for %s." % ticker
-        today = date.today()
-        exp = min(exps, key=lambda e: abs((date.fromisoformat(e) - today).days - days))
-        chain = t.option_chain(exp)
-        df = chain.calls if kind == "call" else chain.puts
-        row = df.iloc[(df["strike"] - strike).abs().argsort().iloc[0]]
-        bid, ask, last = float(row.get("bid") or 0), float(row.get("ask") or 0), float(row.get("lastPrice") or 0)
-        premium = round((bid + ask) / 2, 2) if bid > 0 and ask > 0 else round(last, 2)
-        return {"expiry": exp, "days": max(1, (date.fromisoformat(exp) - today).days), "strike": float(row["strike"]),
-                "bid": bid, "ask": ask, "last": last, "premium": premium, "iv": float(row.get("impliedVolatility") or 0),
-                "openInterest": int(row.get("openInterest") or 0), "volume": int(row.get("volume") or 0)}, None
-    except Exception as e:   # yfinance raises many kinds of errors when Yahoo changes something
-        return None, "Option lookup failed: %s" % e
+    """Options chains are not retrieved.
+
+    Yahoo's options endpoint answered HTTP 401 on 19 October 2026. Working around
+    that session check would bypass an access restriction, so no premium is returned.
+    """
+    return None, ("No free options chain is available for %s. Yahoo's options endpoint "
+                  "returned HTTP 401. Type the bid and ask yourself. A premium will not be filled in." % ticker)
 
 
 def snapshot(ticker, filed_on, kind="call", strike=None, days=60):

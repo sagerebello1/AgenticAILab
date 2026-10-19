@@ -12,7 +12,9 @@ not trained, because there is no historical headline dataset behind this project
 adjustment as a transparent heuristic and check the headlines it shows.
 """
 import math
+import os
 import re
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,11 +51,22 @@ class NewsError(Exception):
     pass
 
 
+def _ssl_context():
+    """Prefer the system certificate bundle. See market._ssl_context."""
+    ca = "/etc/ssl/cert.pem"
+    if os.path.exists(ca):
+        try:
+            return ssl.create_default_context(cafile=ca)
+        except ssl.SSLError:
+            pass
+    return ssl.create_default_context()
+
+
 def fetch(ticker, timeout=12):
     url = FEED % urllib.parse.quote(ticker)
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as r:
             root = ET.fromstring(r.read())
     except (urllib.error.URLError, ET.ParseError) as e:
         raise NewsError("Could not read the Yahoo Finance feed: %s" % e)
