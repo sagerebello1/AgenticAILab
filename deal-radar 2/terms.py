@@ -56,7 +56,12 @@ def to_text(raw):
         raw = raw.decode("utf-8", errors="replace")
     raw = re.sub(r"(?is)<(script|style).*?</\1>", " ", raw)
     raw = re.sub(r"(?s)<[^>]+>", " ", raw)
-    raw = html.unescape(raw).replace("\xa0", " ")
+    for _ in range(3):
+        nxt = html.unescape(raw)
+        if nxt == raw:
+            break
+        raw = nxt
+    raw = raw.replace("\xa0", " ")
     return re.sub(r"\s+", " ", raw).strip()
 
 

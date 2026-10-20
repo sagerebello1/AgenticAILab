@@ -15,6 +15,7 @@ spaces requests out so it stays well under the limit.
 import json
 import os
 import re
+import socket
 import ssl
 import time
 import urllib.error
@@ -42,18 +43,28 @@ def _ssl_context():
     return ssl.create_default_context()
 
 
+def _timed_out(exc):
+    reason = getattr(exc, "reason", exc)
+    return isinstance(reason, (TimeoutError, socket.timeout)) or "timed out" in str(reason).lower()
+
+
 def _get(url, user_agent, max_bytes=1_500_000, timeout=20):
     wait = 0.12 - (time.time() - _last_request[0])
     if wait > 0:
         time.sleep(wait)
+    host = urllib.parse.urlparse(url).netloc or "the SEC"
     req = urllib.request.Request(url, headers={"User-Agent": user_agent, "Accept": "*/*"})
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as resp:
             data = resp.read(max_bytes)
     except urllib.error.HTTPError as e:
-        raise EdgarError("SEC returned HTTP %d for %s" % (e.code, url))
+        raise EdgarError("SEC returned HTTP %d for %s. No filing text was substituted." % (e.code, host))
+    except (TimeoutError, socket.timeout):
+        raise EdgarError("SEC request to %s timed out after %d seconds. No filing text was substituted." % (host, timeout))
     except urllib.error.URLError as e:
-        raise EdgarError("Could not reach the SEC: %s" % e.reason)
+        if _timed_out(e):
+            raise EdgarError("SEC request to %s timed out after %d seconds. No filing text was substituted." % (host, timeout))
+        raise EdgarError("Could not reach %s: %s" % (host, e.reason))
     finally:
         _last_request[0] = time.time()
     return data

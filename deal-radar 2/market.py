@@ -16,6 +16,7 @@ What each number means for the model
 import json
 import math
 import os
+import socket
 import ssl
 import urllib.error
 import urllib.parse
@@ -55,8 +56,15 @@ def history(ticker, start, end, timeout=15):
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as r:
             data = json.loads(r.read())
-    except (urllib.error.URLError, json.JSONDecodeError) as e:
-        raise MarketError("Could not read Yahoo prices: %s" % e)
+    except json.JSONDecodeError as e:
+        raise MarketError("Yahoo chart for %s did not return price data. No price was substituted." % ticker)
+    except (TimeoutError, socket.timeout):
+        raise MarketError("Yahoo chart for %s timed out after %d seconds. No price was substituted." % (ticker, timeout))
+    except urllib.error.URLError as e:
+        reason = getattr(e, "reason", e)
+        if isinstance(reason, (TimeoutError, socket.timeout)) or "timed out" in str(reason).lower():
+            raise MarketError("Yahoo chart for %s timed out after %d seconds. No price was substituted." % (ticker, timeout))
+        raise MarketError("Yahoo chart for %s did not answer. No price was substituted. %s" % (ticker, reason))
     res = (data.get("chart", {}).get("result") or [None])[0]
     if not res or not res.get("timestamp"):
         raise MarketError("Yahoo has no price history for %s" % ticker)

@@ -169,15 +169,27 @@ def read_filing(rec):
 def scan(days, limit):
     if not EDGAR_UA:
         return {"mode": "error", "reason": "EDGAR_USER_AGENT is not set. Add your name and email to the .env file next to server.py. The SEC requires that contact and does not require a key.", "deals": []}
+    warnings = []
+    recs = []
+    searches = (
+        ("8-K merger agreements", lambda: edgar.search_filings(EDGAR_UA, days=days, query='"agreement and plan of merger"', forms="8-K")),
+        ("tender offers", lambda: edgar.search_filings(EDGAR_UA, days=days, query='"offer to purchase"', forms="SC TO-T")),
+    )
+    for label, fetch in searches:
+        try:
+            recs += fetch()
+        except (edgar.EdgarError, TimeoutError, OSError, ValueError) as e:
+            warnings.append("SEC search for %s failed. %s" % (label, e))
+    if not recs:
+        return {"mode": "error", "reason": " ".join(warnings) or "SEC EDGAR returned no merger filings.", "deals": [], "warnings": warnings}
     try:
-        recs = edgar.search_filings(EDGAR_UA, days=days, query='"agreement and plan of merger"', forms="8-K")
-        recs += edgar.search_filings(EDGAR_UA, days=days, query='"offer to purchase"', forms="SC TO-T")
         recs.sort(key=lambda r: r["filedOn"] or "", reverse=True)
         announced = [r for r in recs if r.get("ticker") and (
             "1.01" in (r.get("items") or []) or (r.get("form") or "").startswith("SC TO"))]
         chosen, seen = [], set()
         for rec in (announced or recs):
-            key = (rec.get("ticker") or rec.get("adsh") or "").upper()
+            key = (rec.get("ticker") or rec.get("cik") or rec.get("adsh") or "")
+            key = str(key).upper()
             if key in seen:
                 continue
             seen.add(key)
@@ -186,12 +198,15 @@ def scan(days, limit):
                 break
         deals = []
         for rec in chosen:
-            text, sources, doc_error = read_filing(rec)
-            rec = dict(rec, sources=sources, docError=doc_error)
-            deals.append(build_deal(rec, text))
-        return {"mode": "live", "deals": deals, "scannedAt": datetime.utcnow().isoformat() + "Z"}
+            try:
+                text, sources, doc_error = read_filing(rec)
+                rec = dict(rec, sources=sources, docError=doc_error)
+                deals.append(build_deal(rec, text))
+            except (edgar.EdgarError, market.MarketError, TimeoutError, OSError, ValueError, KeyError) as e:
+                warnings.append("%s: %s" % (rec.get("ticker") or rec.get("adsh") or "A filing", e))
+        return {"mode": "live", "deals": deals, "scannedAt": datetime.utcnow().isoformat() + "Z", "warnings": warnings}
     except (edgar.EdgarError, ValueError, KeyError) as e:
-        return {"mode": "error", "reason": "SEC EDGAR did not answer. %s" % e, "deals": []}
+        return {"mode": "error", "reason": "SEC EDGAR did not answer. %s" % e, "deals": [], "warnings": warnings}
 
 
 def page():

@@ -14,6 +14,7 @@ adjustment as a transparent heuristic and check the headlines it shows.
 import math
 import os
 import re
+import socket
 import ssl
 import urllib.error
 import urllib.parse
@@ -68,8 +69,15 @@ def fetch(ticker, timeout=12):
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as r:
             root = ET.fromstring(r.read())
-    except (urllib.error.URLError, ET.ParseError) as e:
-        raise NewsError("Could not read the Yahoo Finance feed: %s" % e)
+    except ET.ParseError:
+        raise NewsError("Yahoo headlines for %s were not readable. No headlines were substituted." % ticker)
+    except (TimeoutError, socket.timeout):
+        raise NewsError("Yahoo headlines for %s timed out after %d seconds. No headlines were substituted." % (ticker, timeout))
+    except urllib.error.URLError as e:
+        reason = getattr(e, "reason", e)
+        if isinstance(reason, (TimeoutError, socket.timeout)) or "timed out" in str(reason).lower():
+            raise NewsError("Yahoo headlines for %s timed out after %d seconds. No headlines were substituted." % (ticker, timeout))
+        raise NewsError("Yahoo headlines for %s did not answer. No headlines were substituted. %s" % (ticker, reason))
     items = []
     for it in root.iter("item"):
         title = (it.findtext("title") or "").strip()
@@ -104,7 +112,7 @@ def score(items, names=(), now=None):
             tags.append("Rival bid or higher offer")
         total += w * decay
         rows.append({"title": title, "link": it["link"], "published": it["published"].isoformat() if it["published"] else None,
-                     "tags": tags, "weight": round(w, 2), "age_days": round(age, 1)})
+                     "tags": tags, "weight": round(w, 2), "scored": True, "age_days": round(age, 1)})
     adj = max(-CAP, min(CAP, total))
     rows.sort(key=lambda r: r["age_days"])
     return {"adjustment": round(adj, 3), "headlines": rows[:12], "flags": {"rivalBid": rival, "ended": any("Deal ended" in r["tags"] for r in rows),

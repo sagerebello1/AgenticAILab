@@ -295,7 +295,17 @@ const money = x => {
 };
 const pct = (x, d = 0) => x === null || x === undefined || !isFinite(x) ? 'n/a' : (x * 100).toFixed(d) + '%';
 const spct = (x, d = 0) => x === null || !isFinite(x) ? 'n/a' : (x >= 0 ? '+' : '-') + Math.abs(x * 100).toFixed(d) + '%';
-const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function decodeText(s){
+  let cur = String(s == null ? '' : s);
+  for (let i = 0; i < 3; i++){
+    const doc = new DOMParser().parseFromString('<!doctype html><body>' + cur, 'text/html');
+    const next = doc.body ? doc.body.textContent : cur;
+    if (next === cur) break;
+    cur = next;
+  }
+  return cur;
+}
+const esc = s => decodeText(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function daysUntil(iso){
   if (!iso) return null;
   const d = Math.round((new Date(iso + 'T00:00:00Z') - Date.now()) / 86400000);
@@ -403,9 +413,23 @@ function paintStatus(){
   box.innerHTML =
     '<div class="cell"><small>Last SEC scan</small><b>' + esc(when(w.lastScan)) + '</b><span>' + esc(every(w.scanSeconds) || 'Not scheduled yet') + '</span></div>' +
     '<div class="cell"><small>Last stock price</small><b>' + esc(when(w.lastPriceRefresh)) + '</b><span>Delayed chart' + (w.priceSeconds ? ', ' + esc(every(w.priceSeconds).toLowerCase()) : '') + '. Not real-time.</span></div>' +
-    '<div class="cell"><small>Active, cash price quoted</small><b>' + (w.activeQuoted == null ? '—' : w.activeQuoted) + '</b><span>From a filing sentence, not a confirmation.</span></div>' +
+    '<div class="cell"><small>Companies shown</small><b>' + companyCount() + '</b><span>' + companyCountNote(w) + '</span></div>' +
     '<div class="cell"><small>Options chain</small><b>' + (opt.available ? 'Available' : 'Unavailable') + '</b><span>' + (opt.http ? 'HTTP ' + opt.http + '. ' : '') + 'Manual bid and ask only.</span></div>' +
     (errs.length ? '<p class="err">' + esc(errs.join(' ')) + '</p>' : '');
+}
+function companyCount(){
+  if (DEALS.length) return DEALS.filter(shownDeal).length;
+  const w = STATUS.workflow || {};
+  if (w.listed == null) return '—';
+  return w.listed;
+}
+function companyCountNote(w){
+  const quoted = w.quotedCash;
+  const shown = DEALS.length ? DEALS.filter(shownDeal).length : w.listed;
+  if (quoted == null || shown == null || shown === '—') return 'A quoted cash price, a stock price, and a break price.';
+  const held = quoted - shown;
+  if (held > 0) return held + (held === 1 ? ' filing quotes a cash price but is missing a stock or break price.' : ' filings quote a cash price but are missing a stock or break price.');
+  return 'Same companies as the list. A missing price is not filled in.';
 }
 function priceCaption(d){
   const p = d.price || {};
@@ -459,6 +483,7 @@ function paintList(){
   $('list').innerHTML = '<h2>Companies <span class="count">' + count + '</span></h2><p class="hint">Buy, sell, or wait, and only when the filing stated a cash price and the quote has a stock price and a break price.</p>' +
     (rows || '<div class="empty">No company has a quoted cash price and a complete quote.</div>');
   $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => select(b.dataset.id)));
+  paintStatus();
 }
 
 /* ---------- Detail ---------- */
@@ -658,7 +683,7 @@ function optionCard(c){
   const greeks = c.greeks
     ? '<p class="sub">Calculated, not from an exchange. Delta ' + c.greeks.delta + ', gamma ' + c.greeks.gamma + ', theta ' + c.greeks.theta + ' per day, vega ' + c.greeks.vega + ' per volatility point.</p>'
     : '<p class="sub">Implied volatility and Greeks are unavailable.</p>';
-  return '<div><h3 style="margin:0 0 6px">' + title + '</h3><p class="sub">' + esc(c.quoteState) + '. Not a live opportunity.</p>' +
+  return '<div><h3 style="margin:0 0 6px">' + title + '</h3><p class="sub">' + esc(c.quoteState) + '. Estimate from the ask you typed, not a market premium, and not a live opportunity.</p>' +
     (c.nonstandardNote ? '<p class="notice err">' + esc(c.nonstandardNote) + '</p>' : '') +
     '<div class="row"><span>Ask used as entry</span><b>' + (c.premium != null ? money(c.premium) : '—') + '</b></div>' +
     '<div class="row"><span>Break-even at expiration</span><b>' + (c.breakEven != null ? money(c.breakEven) : '—') + '</b></div>' +
@@ -690,7 +715,7 @@ function paintQuote(d, s){
     $('stats').innerHTML =
       '<div class="stat"><small>Your chance</small><b>' + pct(your, 0) + '</b><span>' + (s.pCloseManual ? 'You set this' : 'From the filing') + '</span></div>' +
       '<div class="stat"><small>The price assumes</small><b>' + marketLabel + '</b><span>From the delayed chart</span></div>' +
-      '<div class="stat"><small>Your value</small><b>' + money(q.value) + '</b><span>Per share</span></div>';
+      '<div class="stat"><small>Your value</small><b>' + money(q.value) + '</b><span>' + pct(your, 0) + ' of the discounted offer</span></div>';
     const marks = [
       ['Dies', s.downside, ''],
       ['Buy max', q.bid, ''],
@@ -709,6 +734,7 @@ function paintQuote(d, s){
       '<div class="you"><span>Stock today</span><b>' + money(s.spot) + '</b></div>' +
       '<div><span>Lowest price to sell</span><b>' + money(q.ask) + '</b></div>' +
       '<div><span>If the deal closes</span><b>' + money(s.offer) + '</b></div></div>';
+    const valueNote = 'Your value of ' + money(q.value) + ' discounts the ' + money(s.offer) + ' offer for ' + Math.round(s.dtc) + ' days at ' + pct(s.rate > 0 ? s.rate : 0.045, 1) + ' a year, to ' + money(q.pv) + '. It then takes ' + pct(your, 0) + ' of that and the rest at the ' + money(s.downside) + ' break price. It is not the undiscounted offer times the chance. Buy only below ' + money(q.bid) + ' and sell only above ' + money(q.ask) + '. That band is the value plus or minus the larger of 4% of the spread and an 8% yearly wait. Inside the band, wait. ';
     let say = 'The stock is using a ' + pct(Math.min(1, Math.max(0, q.pMarket)), 0) + ' chance. Yours is ' + pct(your, 0) + '.';
     if (q.pMarket > 1 && s.spot > s.offer + 0.009) say = 'The stock is above the cash offer, so the price assumes a higher bid or a stale offer.';
     else if (q.pMarket > 1 && s.downside >= s.spot - 0.02) say = 'The price before this filing is already about where the stock trades, so this is probably not the first announcement. The chance implied by the stock is not usable.';
@@ -725,7 +751,7 @@ function paintQuote(d, s){
       '<div class="line"><span>Your value</span><b>' + money(q.value) + '</b></div>' +
       '<div class="line"><span>' + (q.action === 'bid' ? 'Buy up to' : q.action === 'ask' ? 'Sell down to' : 'Your range') + '</span><b>' +
       (q.action === 'pass' ? money(q.bid) + ' – ' + money(q.ask) : money(q.action === 'bid' ? q.bid : q.ask)) + '</b></div>' +
-      '<p class="say">' + say + '</p><p class="fine">This does not place an order.</p>';
+      '<p class="say">' + valueNote + say + '</p><p class="fine">This does not place an order.</p>';
   }
   const lines = filing.lines.map(line => '<div><span>' + esc(line.text) + '</span><b>' + pct(line.p, 0) + '</b></div>').join('');
   const edited = s.pCloseManual ? '<p class="sub">You moved the chance to ' + pct(your, 0) + '. The filing, before that, said ' + pct(filing.p, 0) + '.</p>' : '';
@@ -851,7 +877,7 @@ function paintNews(d){
   box.innerHTML = head + '<p class="sub">Reading headlines...</p>';
   const q = '/api/news?ticker=' + encodeURIComponent(d.ticker) + '&name=' + encodeURIComponent(d.target) + '&acquirer=' + encodeURIComponent(d.acquirer || '');
   getJson(q, 20000).then(res => { s.news = res; if (SELECTED === d.id) { applyNews(d); renderNews(d, res); } })
-    .catch(() => { box.innerHTML = head + '<p class="sub">Could not load headlines.</p>'; });
+    .catch(() => { box.innerHTML = head + '<p class="sub">Yahoo headlines timed out or did not answer. The filing and the stock quote are unchanged.</p>'; });
 }
 function applyNews(d){
   const s = STATE[d.id], r = s.news;
@@ -862,6 +888,12 @@ function applyNews(d){
     syncInputs(); paint(); paintList();
   }
 }
+function scoreLabel(h){
+  if (!h || h.scored === false || h.weight === null || h.weight === undefined || !isFinite(+h.weight)) return 'Not scored';
+  const n = +h.weight;
+  if (n === 0) return '0.0';
+  return (n > 0 ? '+' : '') + n.toFixed(1);
+}
 function renderNews(d, r){
   const s = STATE[d.id], box = $('newscard');
   const head = '<h3>News</h3>';
@@ -870,12 +902,12 @@ function renderNews(d, r){
   if (r.flags && r.flags.ended) flags += '<div class="notice err">A headline suggests this deal may have ended. Confirm in the filings before trading.</div>';
   if (r.flags && r.flags.completed) flags += '<div class="notice">A headline suggests the deal has completed. The option may no longer be a deal option.</div>';
   if (r.flags && r.flags.rivalBid) flags += '<div class="notice">A headline mentions a rival or higher bid. If it is real, raise "Extra pop above the offer".</div>';
-  const items = (r.headlines || []).map(h => '<li><span class="dl ' + (h.weight > 0 ? 'up' : h.weight < 0 ? 'down' : 'zero') + '">' + (h.weight ? (h.weight > 0 ? '+' : '') + h.weight.toFixed(1) : 'none') + '</span><div>' +
+  const items = (r.headlines || []).map(h => '<li><span class="dl ' + (h.weight > 0 ? 'up' : h.weight < 0 ? 'down' : 'zero') + '">' + scoreLabel(h) + '</span><div>' +
     (h.link ? '<a href="' + esc(h.link) + '" target="_blank" rel="noopener">' + esc(h.title) + '</a>' : esc(h.title)) +
     '<small>' + (h.age_days != null ? h.age_days + ' days ago' : '') + (h.tags.length ? ' &middot; ' + esc(h.tags.join(', ')) : '') + '</small></div></li>').join('');
   const moved = s.pBase !== null ? ' Close odds started at ' + pct(s.pBase, 1) + ' from the filing and are ' + pct(sigm(logit(s.pBase) + (r.adjustment || 0)), 1) + ' after the news.' : '';
   box.innerHTML = head + flags + '<p class="sub">' + (r.headlines && r.headlines.length ? 'Headlines about the deal, newest first. The score is in log-odds points; recent headlines count more.' + moved : 'No headlines about a deal or regulators were found for this ticker.') +
-    ' The weights are hand-set judgments, not trained.' + (s.pCloseManual ? ' You moved the odds slider yourself, so the news is shown but not applied.' : '') + '</p>' +
+    ' The weights are hand-set judgments, not a trained model. 0.0 means a headline was scored and no rule matched. Not scored means the score is missing.' + (s.pCloseManual ? ' You moved the odds slider yourself, so the news is shown but not applied.' : '') + '</p>' +
     (items ? '<ul class="drv">' + items + '</ul>' : '');
 }
 async function pullMarket(d){
@@ -965,6 +997,11 @@ function setDeals(list){
   else $('detail').innerHTML = '<div class="card empty">' + (SCAN_ERROR || 'No filings to show.') + '</div>';
 }
 function showScanError(msg){
+  if (DEALS.length){
+    note(msg, true);
+    paintList();
+    return;
+  }
   SCAN_ERROR = msg;
   DEALS = [];
   SELECTED = null;
@@ -983,12 +1020,18 @@ async function scan(refresh){
     const res = await getJson('/api/scan' + (refresh ? '?refresh=1' : ''), 120000);
     STATUS.mode = res.mode;
     APPLIED_SCAN = res.scannedAt || APPLIED_SCAN;
-    if (res.mode === 'live' && res.deals && res.deals.length){ SCAN_ERROR = null; setDeals(res.deals); }
+    if (res.mode === 'live' && res.deals && res.deals.length){
+      SCAN_ERROR = null; setDeals(res.deals);
+      if (res.warnings && res.warnings.length) note(res.warnings.join(' '), true);
+    }
     else if (res.mode === 'live'){ showScanError('EDGAR returned no merger filings in this window.'); }
-    else { showScanError(res.reason || 'The SEC filing search failed.'); }
+    else { showScanError(res.reason || 'The SEC filing search failed. Earlier filings stay on screen.'); }
     pollStatus();
   }catch(e){
-    showScanError('The local server did not answer. Run python3 server.py and open http://127.0.0.1:8000.');
+    const timed = e && e.name === 'AbortError';
+    showScanError(timed
+      ? 'The SEC scan timed out in the browser. Earlier filings stay on screen, and no prices were filled in.'
+      : 'The local server did not answer. Earlier filings stay on screen. Run python3 server.py and open http://127.0.0.1:8000.');
   }finally{
     btn.disabled = false; btn.textContent = 'Scan filings'; paintPills();
   }

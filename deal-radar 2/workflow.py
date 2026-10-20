@@ -4,6 +4,7 @@ recalculates the existing quote when the inputs change.
 No options chain is called. A daily Yahoo bar is never labeled real-time.
 """
 import copy
+import math
 import os
 import threading
 import time
@@ -28,9 +29,12 @@ def seconds(name, default, minimum):
 
 
 def deal_key(deal):
+    """One company. Ticker first, then CIK, so two filings cannot count twice."""
     ticker = (deal.get("ticker") or "").strip().upper()
     if ticker:
         return "T:" + ticker
+    if deal.get("cik"):
+        return "C:" + str(deal.get("cik"))
     return "A:" + str(deal.get("id") or "")
 
 
@@ -204,6 +208,27 @@ def active_quoted(deal):
     return kind not in ("termination", "completed")
 
 
+def listed_company(deal, today=None):
+    """Same rule as the sidebar: a quoted cash price, a stock price, and a break price.
+
+    A missing break price stays out of the list. It is not filled in.
+    """
+    if not active_quoted(deal):
+        return False
+    prices = deal.get("market") or {}
+    try:
+        offer = float(deal.get("offer"))
+        spot = float(prices.get("spot"))
+        down = float(prices.get("downside"))
+    except (TypeError, ValueError):
+        return False
+    if min(offer, spot, down) <= 0:
+        return False
+    days = _close_days(deal, today)
+    discounted = offer * math.exp(-0.045 * days / 365.0)
+    return abs(discounted - down) >= 1e-6
+
+
 def yahoo_spot(ticker):
     """Latest daily close only. The pre-announcement price is left as it was."""
     series = market.history(ticker, date.today() - timedelta(days=14), date.today() + timedelta(days=1))
@@ -236,6 +261,7 @@ class Workflow:
         self.book = []
         self.last_scan_ok = None
         self.last_scan_error = None
+        self.last_warnings = []
         self.last_price_ok = None
         self.last_price_error = None
         self._scan_mono = 0.0
@@ -262,6 +288,7 @@ class Workflow:
                 recalculate(deal)
         self.last_scan_ok = payload.get("scannedAt") or _iso(now)
         self.last_scan_error = None
+        self.last_warnings = list(payload.get("warnings") or [])
         self._scan_mono = time.monotonic()
         if any((deal.get("market") or {}).get("spot") for deal in stamped):
             self.last_price_ok = _iso(now)
@@ -301,11 +328,12 @@ class Workflow:
             deals = copy.deepcopy(self.book)
         if not deals and self.last_scan_error:
             return {"mode": "error", "reason": self.last_scan_error, "deals": [], "scannedAt": self.last_scan_ok}
-        return {"mode": "live", "deals": deals, "scannedAt": self.last_scan_ok}
+        return {"mode": "live", "deals": deals, "scannedAt": self.last_scan_ok, "warnings": list(self.last_warnings)}
 
     def status(self):
         with self._lock:
             quoted = sum(1 for deal in self.book if active_quoted(deal))
+            listed = sum(1 for deal in self.book if listed_company(deal))
             tracked = len(self.book)
         return {
             "lastScan": self.last_scan_ok,
@@ -314,10 +342,12 @@ class Workflow:
             "lastPriceError": self.last_price_error,
             "scanSeconds": self.scan_seconds,
             "priceSeconds": self.price_seconds,
-            "activeQuoted": quoted,
+            "listed": listed,
+            "quotedCash": quoted,
+            "activeQuoted": listed,
             "tracked": tracked,
             "optionsAvailable": False,
-            "activeQuotedNote": "A filing sentence stated a cash price per share, and the filing was not read as a termination or a completed deal. That is not an independent confirmation.",
+            "activeQuotedNote": "Companies shown have a quoted cash price, a stock price, and a break price. A filing that quotes a cash price but is missing one of those prices is not counted here.",
         }
 
     def start(self):
