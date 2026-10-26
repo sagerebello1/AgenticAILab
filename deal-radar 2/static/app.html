@@ -31,6 +31,34 @@ h1,h2,h3{font-family:var(--head);margin:0;letter-spacing:-.01em}
 .top{background:var(--bg);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 .topbar{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:16px 28px}
 .brand{margin-right:auto}
+.lookup{display:flex;align-items:center;gap:8px}
+.lookup label{font-size:13px;font-weight:600;color:var(--muted)}
+.lookup input{width:168px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--soft)}
+.lookup input:focus{outline:none;border-color:var(--ink);background:var(--bg)}
+.lookup input::placeholder{color:var(--faint)}
+.lookup-result{max-width:1120px;margin:0 auto;padding:8px 28px 0;font-size:14px}
+.lookup-result:empty{display:none}
+.lookup-result.err{color:var(--down)}
+.tape-wrap{border-bottom:1px solid var(--line)}
+.tape{overflow:hidden}
+.tape-track{display:flex;width:max-content;align-items:center;min-height:38px;padding-left:28px;color:var(--muted);font-size:13.5px}
+.tape-track.run{animation:tape-scroll 50s linear infinite}
+.tape:hover .tape-track.run,.tape:focus-within .tape-track.run{animation-play-state:paused}
+.tape-set{display:flex}
+.tick{display:flex;align-items:baseline;gap:8px;padding:8px 22px;white-space:nowrap}
+.tick b{font-weight:600;color:var(--ink)}
+.tick .mv{font-weight:600;font-variant-numeric:tabular-nums}
+.tick.up .mv{color:var(--up)}
+.tick.down .mv{color:var(--down)}
+.tick.unchanged .mv{color:var(--muted)}
+.tick .tag,.tick.bad{color:var(--faint);font-size:12px}
+.tape-note{max-width:1120px;margin:0 auto;padding:0 28px 8px;color:var(--faint);font-size:12px}
+@keyframes tape-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){
+  .tape-track,.tape-track.run{animation:none}
+  .tape{overflow:visible}
+  .tape-track{width:auto;flex-wrap:wrap;padding-left:12px}
+}
 .brand h1{font-size:18px;font-weight:600;letter-spacing:-.03em}
 .guide{max-width:1120px;margin:0 auto;padding:18px 28px 0;color:var(--muted);font-size:14px}
 .status{max-width:1120px;margin:0 auto;padding:14px 28px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -47,7 +75,13 @@ h1,h2,h3{font-family:var(--head);margin:0;letter-spacing:-.01em}
 :focus-visible{outline:2px solid var(--up);outline-offset:2px}
 
 .shell{display:grid;grid-template-columns:280px minmax(0,1fr);gap:8px 36px;max-width:1120px;margin:0 auto;padding:12px 28px 64px}
-@media (max-width:900px){.shell{grid-template-columns:1fr;padding:8px 16px 40px}.topbar,.guide{padding-left:16px;padding-right:16px}}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;padding:8px 16px 40px}
+  .topbar,.guide,.lookup-result,.tape-note{padding-left:16px;padding-right:16px}
+  .topbar{flex-wrap:wrap}
+  .lookup{order:3;width:100%;margin-left:0}
+  .lookup input{flex:1;min-width:0;width:auto}
+}
 
 .notice{margin:0 0 14px;padding:10px 14px;border-radius:10px;background:var(--accent-bg);font-size:13.5px}
 .notice.err{background:var(--bad-bg)}
@@ -92,7 +126,7 @@ h1,h2,h3{font-family:var(--head);margin:0;letter-spacing:-.01em}
 .rows div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px}
 .rows b{font-weight:600;font-variant-numeric:tabular-nums}
 .rows .you{font-weight:600}
-.ticket{position:sticky;top:78px;border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;background:var(--surface)}
+.ticket{position:sticky;top:148px;border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;background:var(--surface)}
 .ticket h3{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:10px}
 .verb{display:block;border-radius:12px;padding:16px 16px 14px;margin-bottom:14px}
 .verb.bid{background:var(--up);color:#041204}
@@ -184,9 +218,21 @@ details p,details li{color:var(--muted);font-size:13.5px}
 <header class="top">
   <div class="topbar">
     <div class="brand"><h1>Deal Radar</h1></div>
-    <button class="btn" id="scanBtn" type="button">Scan filings</button>
+    <form class="lookup" id="lookupForm" role="search">
+      <label for="tickerInput">Symbol</label>
+      <input id="tickerInput" name="ticker" type="text" placeholder="AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" aria-label="Stock symbol">
+      <button class="btn" id="lookupBtn" type="submit">Search</button>
+    </form>
+    <button class="btn ghost" id="scanBtn" type="button">Scan filings</button>
+  </div>
+  <div class="tape-wrap">
+    <div class="tape" id="tape" role="region" aria-label="Dow Jones, NASDAQ Composite, and S&P 500">
+      <div class="tape-track" id="tapeTrack">Loading index values…</div>
+    </div>
+    <p class="tape-note" id="tapeNote">Loading the delayed daily chart. No index values are filled in yet.</p>
   </div>
 </header>
+<p class="lookup-result" id="lookupResult" role="status"></p>
 <p class="guide">Pick a company. You will see the stock price, the chance the buyout happens, and whether to buy, sell, or wait.</p>
 <section id="status" class="status" aria-label="Data status"></section>
 
@@ -1036,6 +1082,106 @@ async function scan(refresh){
     btn.disabled = false; btn.textContent = 'Scan filings'; paintPills();
   }
 }
+function signedPoints(x){
+  if (x === null || x === undefined || !isFinite(x)) return null;
+  const n = Math.abs(x).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (x > 0) return '+' + n;
+  if (x < 0) return '−' + n;
+  return n;
+}
+function tapeItem(row){
+  if (!row || !row.available || row.price == null || !isFinite(row.price)){
+    return '<span class="tick bad"><b>' + esc(row && row.name || 'Index') + '</b><span>Unavailable</span></span>';
+  }
+  const dir = row.direction === 'up' || row.direction === 'down' ? row.direction : 'unchanged';
+  const arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '–';
+  const change = row.change == null || !isFinite(row.change) ? 'Change unavailable' : signedPoints(row.change);
+  const pctText = row.changePct == null || !isFinite(row.changePct) ? '' : ' (' + (row.changePct > 0 ? '+' : row.changePct < 0 ? '−' : '') + Math.abs(row.changePct * 100).toFixed(2) + '%)';
+  const fresh = row.freshness === 'stale' ? 'Stale' : 'Delayed';
+  const level = Math.abs(row.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return '<span class="tick ' + dir + '"><b>' + esc(row.name) + '</b><span class="num">' + level + '</span><span class="mv">' + arrow + ' ' + change + pctText + '</span><span class="tag">' + fresh + '</span></span>';
+}
+function paintTape(data){
+  const rows = (data && data.indices) || [];
+  const track = $('tapeTrack');
+  const note = $('tapeNote');
+  if (!rows.length){
+    track.classList.remove('run');
+    track.textContent = 'Index values are unavailable.';
+    if (note) note.textContent = 'No index numbers were filled in.';
+    return;
+  }
+  const once = rows.map(tapeItem).join('');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  track.classList.toggle('run', !reduce && rows.some(r => r.available));
+  track.innerHTML = '<div class="tape-set">' + once + '</div>' + (reduce ? '' : '<div class="tape-set" aria-hidden="true">' + once + '</div>');
+  const ready = rows.filter(r => r.available);
+  if (!ready.length){
+    const err = (rows.map(r => r.error).filter(Boolean)[0]) || '';
+    note.textContent = 'Index values are unavailable. No numbers were filled in.' + (err ? ' ' + err : '');
+    return;
+  }
+  const dates = Array.from(new Set(ready.map(r => r.asOf).filter(Boolean)));
+  const stale = ready.some(r => r.freshness === 'stale');
+  note.textContent = (data.note || 'Yahoo daily chart.') + (dates.length ? ' Last bar ' + dates.join(', ') + '.' : '') + (data.retrievedAt ? ' Checked ' + when(data.retrievedAt) + '.' : '') + (stale ? ' One or more bars are stale.' : '') + ' Not a real-time quote.';
+}
+async function loadIndices(){
+  try{
+    paintTape(await getJson('/api/indices', 50000));
+  }catch(e){
+    const track = $('tapeTrack');
+    track.classList.remove('run');
+    track.textContent = 'Index values are unavailable.';
+    $('tapeNote').textContent = 'The index chart did not answer. No numbers were filled in.';
+  }
+}
+function upsertSearched(deal){
+  if (!deal || !deal.id) return;
+  const ticker = (deal.ticker || '').toUpperCase();
+  const idx = DEALS.findIndex(d => d.id === deal.id || (ticker && (d.ticker || '').toUpperCase() === ticker));
+  if (idx >= 0) DEALS[idx] = deal;
+  else DEALS.push(deal);
+  const row = DEALS[idx >= 0 ? idx : DEALS.length - 1];
+  takeServerPrices(row);
+  paintList();
+  if (shownDeal(row)) select(row.id);
+}
+async function searchSymbol(event){
+  event.preventDefault();
+  const input = $('tickerInput');
+  const btn = $('lookupBtn');
+  const result = $('lookupResult');
+  const ticker = input.value.trim();
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+  result.className = 'lookup-result';
+  result.textContent = ticker ? 'Looking up ' + ticker.toUpperCase() + '…' : 'Enter a ticker symbol.';
+  if (!ticker){
+    result.className = 'lookup-result err';
+    btn.disabled = false;
+    btn.textContent = 'Search';
+    return;
+  }
+  try{
+    const res = await getJson('/api/symbol?ticker=' + encodeURIComponent(ticker), 90000);
+    if (!res.ok){
+      result.className = 'lookup-result err';
+      result.textContent = res.error || 'That symbol could not be looked up. Nothing was added.';
+      return;
+    }
+    result.className = 'lookup-result';
+    result.textContent = res.symbol + ' — ' + res.name + ' ' + (res.message || '');
+    if (res.deal && (res.added || res.alreadyListed)) upsertSearched(res.deal);
+  }catch(e){
+    result.className = 'lookup-result err';
+    result.textContent = e && e.name === 'AbortError'
+      ? 'The lookup timed out. The company list was left as it was, and no name was filled in.'
+      : 'The lookup did not answer. The company list was left as it was.';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Search';
+  }
+}
 function note(msg, err){
   const el = document.createElement('div');
   el.className = 'notice' + (err ? ' err' : '');
@@ -1050,6 +1196,9 @@ function note(msg, err){
   $('detail').innerHTML = '<div class="card empty">Reading SEC filings…</div>';
   paintPills();
   $('scanBtn').addEventListener('click', () => scan(true));
+  $('lookupForm').addEventListener('submit', searchSymbol);
+  loadIndices();
+  setInterval(loadIndices, 300000);
   try{
     const st = await getJson('/api/status', 2500);
     STATUS = Object.assign(STATUS, st, {server:true});

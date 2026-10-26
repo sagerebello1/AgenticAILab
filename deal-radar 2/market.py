@@ -47,17 +47,18 @@ def _ssl_context():
     return ssl.create_default_context()
 
 
-def history(ticker, start, end, timeout=15):
-    """Daily closes as a list of (date, close), oldest first."""
-    q = urllib.parse.urlencode({"period1": int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp()),
-                                "period2": int(datetime(end.year, end.month, end.day, tzinfo=timezone.utc).timestamp()) + 86400,
-                                "interval": "1d", "events": "div,splits"})
-    req = urllib.request.Request(CHART % (urllib.parse.quote(ticker), q), headers={"User-Agent": UA})
+def _fetch_chart(ticker, query, timeout=15):
+    """One Yahoo chart response. A failure names the chart and does not invent a price."""
+    req = urllib.request.Request(CHART % (urllib.parse.quote(ticker), query), headers={"User-Agent": UA})
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as r:
             data = json.loads(r.read())
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         raise MarketError("Yahoo chart for %s did not return price data. No price was substituted." % ticker)
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            raise MarketError("Yahoo chart rate-limited the request for %s. No price was substituted." % ticker)
+        raise MarketError("Yahoo chart for %s returned HTTP %d. No price was substituted." % (ticker, e.code))
     except (TimeoutError, socket.timeout):
         raise MarketError("Yahoo chart for %s timed out after %d seconds. No price was substituted." % (ticker, timeout))
     except urllib.error.URLError as e:
@@ -66,7 +67,18 @@ def history(ticker, start, end, timeout=15):
             raise MarketError("Yahoo chart for %s timed out after %d seconds. No price was substituted." % (ticker, timeout))
         raise MarketError("Yahoo chart for %s did not answer. No price was substituted. %s" % (ticker, reason))
     res = (data.get("chart", {}).get("result") or [None])[0]
-    if not res or not res.get("timestamp"):
+    if not res:
+        raise MarketError("Yahoo has no listing for %s. No price was substituted." % ticker)
+    return res
+
+
+def history(ticker, start, end, timeout=15):
+    """Daily closes as a list of (date, close), oldest first."""
+    q = urllib.parse.urlencode({"period1": int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp()),
+                                "period2": int(datetime(end.year, end.month, end.day, tzinfo=timezone.utc).timestamp()) + 86400,
+                                "interval": "1d", "events": "div,splits"})
+    res = _fetch_chart(ticker, q, timeout)
+    if not res.get("timestamp"):
         raise MarketError("Yahoo has no price history for %s" % ticker)
     closes = res["indicators"]["quote"][0]["close"]
     out = []
@@ -74,6 +86,70 @@ def history(ticker, start, end, timeout=15):
         if c is not None:
             out.append((datetime.fromtimestamp(ts, tz=timezone.utc).date(), float(c)))
     return out
+
+
+def price_move(latest, previous):
+    """Point and percent change from the prior close.
+
+    None means the change is missing. A real zero is returned as unchanged,
+    not as a missing value.
+    """
+    try:
+        latest = float(latest)
+        previous = float(previous)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(latest) or not math.isfinite(previous):
+        return None
+    change = latest - previous
+    if abs(change) < 1e-8:
+        direction = "unchanged"
+        change = 0.0
+    elif change > 0:
+        direction = "up"
+    else:
+        direction = "down"
+    pct = 0.0 if change == 0 else (None if previous == 0 else change / previous)
+    return {"change": change, "changePct": pct, "direction": direction}
+
+
+def identity(ticker, timeout=12):
+    """Symbol and company name from the chart listing. The name is omitted when the chart has none."""
+    query = urllib.parse.urlencode({"range": "5d", "interval": "1d"})
+    res = _fetch_chart(ticker, query, timeout)
+    meta = res.get("meta") or {}
+    symbol = (meta.get("symbol") or "").strip()
+    long_name = (meta.get("longName") or "").strip()
+    short_name = (meta.get("shortName") or "").strip()
+    if not symbol:
+        raise MarketError("Yahoo has no listing for %s. No company name was substituted." % ticker)
+    return {
+        "symbol": symbol,
+        "name": long_name or short_name or None,
+        "instrument": (meta.get("instrumentType") or "").strip().upper() or None,
+        "source": "yahoo-chart",
+    }
+
+
+def index_quote(symbol, today=None, timeout=12):
+    """Latest daily close and the change from the previous daily close.
+
+    The bar is delayed. This does not label it real-time.
+    """
+    today = today or date.today()
+    series = history(symbol, today - timedelta(days=14), today + timedelta(days=1), timeout=timeout)
+    last_day, last_px = series[-1]
+    previous = series[-2][1] if len(series) > 1 else None
+    moved = price_move(last_px, previous)
+    return {
+        "querySymbol": symbol,
+        "price": last_px,
+        "previous": previous,
+        "asOf": last_day.isoformat(),
+        "change": None if moved is None else moved["change"],
+        "changePct": None if moved is None else moved["changePct"],
+        "direction": None if moved is None else moved["direction"],
+    }
 
 
 def stats(series, filed_on):

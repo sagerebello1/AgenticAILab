@@ -323,6 +323,35 @@ class Workflow:
         self.last_price_error = "; ".join(errors) if errors else None
         return {"ok": ok, "errors": errors}
 
+    def find_ticker(self, ticker):
+        key = "T:" + (ticker or "").strip().upper()
+        if key == "T:":
+            return None
+        with self._lock:
+            for deal in self.book:
+                if deal_key(deal) == key:
+                    return copy.deepcopy(deal)
+        return None
+
+    def include(self, deal, retrieved_at=None):
+        """Add one researched company. A second copy of the same ticker replaces nothing extra.
+
+        This does not reset the scan clock and does not drop the other companies.
+        """
+        now = retrieved_at or datetime.now(timezone.utc)
+        row = stamp_price(deal, now)
+        recalculate(row)
+        key = deal_key(row)
+        with self._lock:
+            self.book, _changes = merge_deals(self.book, [row])
+            kept = next(item for item in self.book if deal_key(item) == key)
+            recalculate(kept)
+            kept = copy.deepcopy(kept)
+        if (kept.get("market") or {}).get("spot"):
+            self.last_price_ok = _iso(now)
+            self.last_price_error = None
+        return kept
+
     def payload(self):
         with self._lock:
             deals = copy.deepcopy(self.book)

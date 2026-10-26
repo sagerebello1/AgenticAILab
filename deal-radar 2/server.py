@@ -6,18 +6,22 @@ It binds to 127.0.0.1. No paid API is called, even if a key for one is present i
 Routes
   GET  /                 the interface
   GET  /api/status       which free data sources are live
-  GET  /api/scan         scan EDGAR for new merger filings (cached 10 minutes; add ?refresh=1)
+  GET  /api/scan         scan EDGAR for new merger filings (cached for the scan interval)
+  GET  /api/symbol       company name for a ticker, and a cash deal only when the filing qualifies
+  GET  /api/indices      delayed daily closes for the Dow, NASDAQ Composite, and S&P 500
   GET  /api/quote        one bid/ask from offer, spot, downside, days
   POST /api/quote        same fields as JSON
   GET  /api/quote/live   same, and fill a missing price from Yahoo's public chart.
                          news=1 adds Yahoo's public headline feed.
 """
+import copy
 import json
+import math
 import os
 import sys
 import time
 import urllib.parse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -209,6 +213,209 @@ def scan(days, limit):
         return {"mode": "error", "reason": "SEC EDGAR did not answer. %s" % e, "deals": [], "warnings": warnings}
 
 
+LOOKBACK_DAYS = 120
+INDEX_SPECS = (
+    {"id": "DJI", "name": "Dow Jones", "symbol": "^DJI"},
+    {"id": "IXIC", "name": "NASDAQ Composite", "symbol": "^IXIC"},
+    {"id": "SPX", "name": "S&P 500", "symbol": "^GSPC"},
+)
+INDEX_TTL = 300
+INDEX_ERROR_TTL = 60
+_INDEX_CACHE = {}
+
+
+def present_index(spec, quote, error, today=None):
+    """One index row. A missing value stays null and is never labeled real-time."""
+    row = {
+        "id": spec["id"], "name": spec["name"], "querySymbol": spec["symbol"],
+        "available": False, "price": None, "previous": None, "change": None,
+        "changePct": None, "direction": None, "asOf": None, "freshness": "unavailable",
+        "source": None, "realtime": False, "error": error,
+    }
+    if error or not quote or quote.get("price") is None:
+        return row
+    try:
+        price = float(quote["price"])
+    except (TypeError, ValueError):
+        row["error"] = "Yahoo returned an unreadable index value. No number was substituted."
+        return row
+    if not math.isfinite(price):
+        row["error"] = "Yahoo returned an unreadable index value. No number was substituted."
+        return row
+    freshness = workflow.price_label(quote.get("asOf"), today)
+    if freshness == "unavailable":
+        row["error"] = "Yahoo returned an index value without a bar date. It was not shown."
+        return row
+    row.update({
+        "querySymbol": quote.get("querySymbol") or spec["symbol"],
+        "available": True, "price": price, "previous": quote.get("previous"),
+        "change": quote.get("change"), "changePct": quote.get("changePct"),
+        "direction": quote.get("direction"), "asOf": quote.get("asOf"),
+        "freshness": freshness, "source": "yahoo-chart", "realtime": False, "error": None,
+    })
+    return row
+
+
+def index_board(now=None, fetch=None, today=None):
+    """Delayed daily closes. Successful rows are reused for five minutes."""
+    fetch = fetch or market.index_quote
+    moment = now or datetime.now(timezone.utc)
+    today = today or (moment.date() if isinstance(moment, datetime) else date.today())
+    rows = []
+    for spec in INDEX_SPECS:
+        cached = _INDEX_CACHE.get(spec["symbol"])
+        if cached and time.monotonic() < cached["until"]:
+            rows.append(copy.deepcopy(cached["row"]))
+            continue
+        try:
+            row = present_index(spec, fetch(spec["symbol"]), None, today)
+            ttl = INDEX_TTL
+        except market.MarketError as e:
+            row = present_index(spec, None, str(e), today)
+            ttl = INDEX_ERROR_TTL
+        _INDEX_CACHE[spec["symbol"]] = {"until": time.monotonic() + ttl, "row": row}
+        rows.append(copy.deepcopy(row))
+    return {
+        "indices": rows,
+        "source": "yahoo-chart",
+        "realtime": False,
+        "retrievedAt": workflow._iso(moment),
+        "note": "Yahoo daily chart closes. Delayed, not a real-time quote. The S&P 500 is read from Yahoo's ^GSPC chart because SPX is not on that chart.",
+    }
+
+
+def _find_company(symbol):
+    if not EDGAR_UA:
+        raise edgar.EdgarError("EDGAR_USER_AGENT is not set. Add your name and email to the .env file next to server.py.")
+    return edgar.find_company(EDGAR_UA, symbol)
+
+
+def _search_company_deals(company, today):
+    """Same merger and tender searches as the scan, limited to this company's CIK.
+
+    At most three filings are read. A filing is returned only when the existing
+    sidebar rule can quote it. Otherwise the company list is left alone.
+    """
+    if not EDGAR_UA:
+        return {"status": "error", "deal": None,
+                "message": "EDGAR_USER_AGENT is not set, so filings were not checked. The company list is unchanged."}
+    if not company.get("cik"):
+        return {"status": "none", "deal": None,
+                "message": "SEC's company list has no CIK for this symbol, so no merger filing was checked. The company list is unchanged."}
+    warnings, recs = [], []
+    searches = (
+        ("8-K merger agreements", '"agreement and plan of merger"', "8-K"),
+        ("tender offers", '"offer to purchase"', "SC TO-T"),
+    )
+    for label, query, forms in searches:
+        try:
+            recs += edgar.search_filings(EDGAR_UA, days=LOOKBACK_DAYS, query=query, forms=forms, ciks=company["cik"])
+        except (edgar.EdgarError, TimeoutError, OSError, ValueError) as e:
+            warnings.append("SEC search for %s failed. %s" % (label, e))
+    if not recs and warnings:
+        return {"status": "error", "deal": None,
+                "message": "The SEC filing search failed. %s The company list is unchanged." % " ".join(warnings)}
+    recs.sort(key=lambda r: r.get("filedOn") or "", reverse=True)
+    ordered, seen = [], set()
+    for rec in recs:
+        if rec.get("adsh") in seen:
+            continue
+        seen.add(rec.get("adsh"))
+        ordered.append(rec)
+    note = None
+    for rec in ordered[:3]:
+        rec = dict(rec, ticker=company["ticker"], filer=rec.get("filer") or company["name"])
+        try:
+            text, sources, doc_error = read_filing(rec)
+            deal = build_deal(dict(rec, sources=sources, docError=doc_error), text)
+        except (edgar.EdgarError, market.MarketError, TimeoutError, OSError, ValueError, KeyError) as e:
+            warnings.append(str(e))
+            continue
+        note = deal.get("note") or note
+        if workflow.listed_company(deal, today):
+            return {"status": "added", "deal": deal,
+                    "message": "A filing quotes a cash price and the quote has a stock price and a break price, so it was added. The same buy, sell, and wait rules apply."}
+    if note or ordered:
+        detail = note or "A merger filing was found, but it does not have a cash price, stock price, and break price."
+        return {"status": "ineligible", "deal": None, "message": detail + " It was not added to the company list."}
+    return {"status": "none", "deal": None,
+            "message": "No merger agreement or tender offer for this company in the last %d days. The company list is unchanged. That is not a close chance of zero." % LOOKBACK_DAYS}
+
+
+def _symbol_result(company, source, message, deal=None, added=False, already=False, eligible=False):
+    return {
+        "ok": True, "symbol": company["ticker"], "name": company["name"], "cik": company.get("cik"),
+        "nameSource": source, "added": added, "alreadyListed": already, "eligible": eligible,
+        "deal": deal, "message": message,
+    }
+
+
+def lookup_symbol(raw, today=None, find_company=None, search_deals=None, identity=None):
+    """Company name for a ticker. A cash deal is added only when the existing quote rule passes."""
+    today = today or date.today()
+    try:
+        symbol = edgar.normalize_symbol(raw)
+    except ValueError as e:
+        return {"ok": False, "symbol": None, "name": None, "deal": None, "added": False,
+                "alreadyListed": False, "eligible": False, "error": str(e)}
+
+    find_company = find_company or _find_company
+    identity = identity or market.identity
+    search_deals = search_deals or _search_company_deals
+    company, source, sec_error = None, None, None
+    try:
+        company = find_company(symbol)
+        if company:
+            source = "sec-company-tickers"
+    except edgar.EdgarError as e:
+        sec_error = str(e)
+    except (TimeoutError, OSError, ValueError) as e:
+        sec_error = "SEC company list did not answer. No company name was substituted. %s" % e
+
+    if company is None:
+        try:
+            chart = identity(symbol)
+        except market.MarketError as e:
+            error = str(e) if not sec_error else "%s %s" % (sec_error, e)
+            return {"ok": False, "symbol": None, "name": None, "deal": None, "added": False,
+                    "alreadyListed": False, "eligible": False, "error": error}
+        shown = chart.get("symbol") or symbol
+        if not chart.get("name"):
+            return {"ok": False, "symbol": shown, "name": None, "deal": None, "added": False,
+                    "alreadyListed": False, "eligible": False,
+                    "error": "Yahoo's chart lists %s but did not include a company name. No name was filled in." % shown}
+        company = {"ticker": shown, "name": chart["name"], "cik": None}
+        source = "yahoo-chart"
+        if chart.get("instrument") == "INDEX":
+            return _symbol_result(company, source, "Name from Yahoo's daily chart. This listing is an index, not a company, so nothing was added to the company list.")
+
+    existing = WORK.find_ticker(company["ticker"])
+    if existing:
+        eligible = bool(workflow.listed_company(existing, today))
+        lead = "Name from the SEC company list. " if source == "sec-company-tickers" else "Name from Yahoo's daily chart. "
+        if eligible:
+            message = lead + "Already in the company list. A second row was not added."
+        else:
+            message = lead + "Already tracked, and it stays off the sidebar. " + (existing.get("note") or "The filing does not have a complete cash quote.")
+        return _symbol_result(company, source, message, deal=existing, already=True, eligible=eligible)
+
+    if source != "sec-company-tickers" or not company.get("cik"):
+        if sec_error:
+            message = "Name from Yahoo's daily chart. The SEC company list did not answer, so no filing was checked. The company list is unchanged."
+        else:
+            message = "Name from Yahoo's daily chart. The SEC company list has no matching ticker, so no merger filing was checked. The company list is unchanged."
+        return _symbol_result(company, source, message)
+
+    try:
+        found = search_deals(company, today)
+    except (edgar.EdgarError, market.MarketError, TimeoutError, OSError, ValueError) as e:
+        return _symbol_result(company, source, "Name from the SEC company list. The filing check failed: %s The company list is unchanged." % e)
+    message = "Name from the SEC company list. " + (found.get("message") or "The company list is unchanged.")
+    if found.get("status") == "added" and found.get("deal"):
+        return _symbol_result(company, source, message, deal=WORK.include(found["deal"]), added=True, eligible=True)
+    return _symbol_result(company, source, message)
+
+
 def page():
     with open(os.path.join(HERE, "static", "app.html"), encoding="utf-8") as f:
         body = f.read()
@@ -269,6 +476,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"error": str(e)})
         if url.path == "/api/scan":
             return self._scan(q)
+        if url.path == "/api/symbol":
+            return self._send(200, lookup_symbol((q.get("ticker") or [""])[0]))
+        if url.path == "/api/indices":
+            return self._send(200, index_board())
         if url.path == "/api/quotes":
             return self._send(400, {"error": "Fictional sample companies are not served. Use a filing from the scan."})
         if url.path == "/api/quote":

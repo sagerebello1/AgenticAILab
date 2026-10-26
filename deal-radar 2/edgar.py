@@ -80,14 +80,19 @@ def _parse_name(display):
     return m.group(1).strip(" ,"), m.group(2), m.group(3)
 
 
-def search_filings(user_agent, days=30, query='"agreement and plan of merger"', forms="8-K", size=40):
-    """Return one record per filing that matched, newest first."""
+def search_filings(user_agent, days=30, query='"agreement and plan of merger"', forms="8-K", size=40, ciks=None):
+    """Return one record per filing that matched, newest first.
+
+    ciks limits the search to one SEC company. The scan leaves it empty.
+    """
     end = date.today()
     start = end - timedelta(days=days)
     params = {
         "q": query, "dateRange": "custom", "startdt": start.isoformat(), "enddt": end.isoformat(),
         "forms": forms,
     }
+    if ciks:
+        params["ciks"] = "%010d" % int(ciks)
     url = SEARCH_URL + "?" + urllib.parse.urlencode(params)
     payload = json.loads(_get(url, user_agent))
     seen, out = set(), []
@@ -270,6 +275,89 @@ def submissions(user_agent, cik):
 
 
 _sic_cache = {}
+
+
+_TICKER_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,9}$")
+_ticker_cache = {"at": 0.0, "map": None}
+
+
+def normalize_symbol(raw):
+    """A stock symbol, or an error that names what was wrong. Nothing is looked up."""
+    text = (raw or "").strip().upper()
+    if not text:
+        raise ValueError("Enter a ticker symbol, such as AAPL.")
+    if text.startswith("^"):
+        raise ValueError("Index symbols stay on the market ticker. Enter a stock symbol, such as AAPL.")
+    if not _TICKER_RE.match(text):
+        raise ValueError("Use a stock symbol such as AAPL or BRK-B. Nothing was looked up.")
+    return text
+
+
+def ticker_aliases(symbol):
+    """BRK.B and BRK-B are the same class share in different sources."""
+    aliases = [symbol]
+    if "." in symbol:
+        aliases.append(symbol.replace(".", "-"))
+    elif "-" in symbol:
+        aliases.append(symbol.replace("-", "."))
+    return aliases
+
+
+def parse_company_tickers(payload):
+    """SEC company_tickers.json rows keyed by ticker. A row with no name is skipped."""
+    rows = payload.values() if isinstance(payload, dict) else payload
+    out = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        ticker = str(row.get("ticker") or "").strip().upper()
+        title = str(row.get("title") or "").strip()
+        cik = row.get("cik_str", row.get("cik"))
+        if not ticker or not title or cik is None:
+            continue
+        try:
+            cik = int(cik)
+        except (TypeError, ValueError):
+            continue
+        out[ticker] = {"ticker": ticker, "name": title, "cik": cik}
+    return out
+
+
+def lookup_ticker(mapping, symbol):
+    symbol = (symbol or "").strip().upper()
+    for key in ticker_aliases(symbol):
+        hit = mapping.get(key)
+        if hit:
+            return dict(hit)
+    return None
+
+
+def company_ticker_map(user_agent, max_age=12 * 3600):
+    """Official ticker, CIK, and company title. Cached in memory. A failed refresh keeps the previous map."""
+    now = time.time()
+    if _ticker_cache["map"] is not None and now - _ticker_cache["at"] < max_age:
+        return _ticker_cache["map"]
+    try:
+        raw = _get("https://www.sec.gov/files/company_tickers.json", user_agent, max_bytes=6_000_000)
+        mapping = parse_company_tickers(json.loads(raw))
+    except json.JSONDecodeError:
+        mapping = {}
+    except EdgarError:
+        if _ticker_cache["map"] is not None:
+            return _ticker_cache["map"]
+        raise
+    if not mapping:
+        if _ticker_cache["map"] is not None:
+            return _ticker_cache["map"]
+        raise EdgarError("SEC company list came back empty. No company name was substituted.")
+    _ticker_cache["map"] = mapping
+    _ticker_cache["at"] = now
+    return mapping
+
+
+def find_company(user_agent, symbol):
+    """Official SEC ticker and company title, or None when the symbol is not on the list."""
+    return lookup_ticker(company_ticker_map(user_agent), symbol)
 
 
 def sic(user_agent, cik):
