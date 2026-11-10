@@ -1,0 +1,101 @@
+{
+  "stats": {
+    "generatedAt": "2026-11-09T21:21:33Z",
+    "search_hits": 25935,
+    "filings_read": 3829,
+    "verified_transactions": 749,
+    "buyer_filings": 620,
+    "not_verified_roles": 2414,
+    "competing_links": 38,
+    "closed": 234,
+    "terminated": 14,
+    "unresolved": 501,
+    "non_acquired_companies": 126,
+    "tickers_with_prices": 284,
+    "tickers_requested": 513,
+    "usable_30": 2298,
+    "usable_90": 2293,
+    "usable_180": 2279,
+    "positives_30": 728,
+    "positives_90": 1452,
+    "positives_180": 2167,
+    "negatives_30": 1570,
+    "negatives_90": 841,
+    "negatives_180": 112,
+    "event_deals": 237,
+    "price_before": 237,
+    "price_day0": 238,
+    "price_day1": 238,
+    "price_day5": 238,
+    "price_day10": 238,
+    "price_day30": 237,
+    "premiums": 7,
+    "news_rows": 0,
+    "lookahead_violations": 0,
+    "missing_fields": [
+      [
+        "target_ticker",
+        288
+      ],
+      [
+        "acquirer_name",
+        510
+      ],
+      [
+        "acquirer_ticker",
+        746
+      ],
+      [
+        "consideration",
+        594
+      ],
+      [
+        "offer_price",
+        625
+      ],
+      [
+        "exchange_ratio",
+        716
+      ],
+      [
+        "transaction_value",
+        723
+      ],
+      [
+        "outcome",
+        501
+      ]
+    ],
+    "unread_hits": 8476,
+    "model_file_present": false,
+    "search_short": 1581
+  },
+  "judgment": {
+    "acquisition": false,
+    "post_announcement_price": false,
+    "deal_completion": false,
+    "trained": false,
+    "notes": [
+      "Most item 1.01 search hits were not read. The transaction list is a sample, not the full set of filings.",
+      "The 30, 90, and 180 day rows repeat the same announced deals. They are not separate companies.",
+      "237 deals have a market close before and after the announcement. Only 7 also have a cash offer, so an offer-to-market comparison is not supported yet.",
+      "248 deals have a closing or termination sentence. 501 do not, so the outcome label is missing for most transactions."
+    ]
+  },
+  "limitations": [
+    "FMP_API_KEY is not set. Financial Modeling Prep was not called.",
+    "POLYGON_API_KEY is not set. Polygon was not called.",
+    "Stooq probe returned HTTP 200 and was blocked. No Stooq prices were stored.",
+    "CIRCOR window: Yahoo HTTP 400 (Data doesn't exist for startDate = 1682899200, endDate = 1686096000). Current listing Corgi CRCL 2x Daily ETF, first trade 2026-07-07. Those recent bars were not stored as the old company's history.",
+    "Paratek window: Yahoo HTTP 404 (No data found, symbol may be delisted). Current listing unnamed, first trade unknown. Those recent bars were not stored as the old company's history.",
+    "On a 2023 first-quarter check, EDGAR full-text pages from=0 and from=100 shared 15 of 100 accessions. Hits are deduplicated by accession. A page overlap can also skip a filing, so the search list is not a complete census.",
+    "No historical news archive is connected. historical_news_signals was not filled.",
+    "Financial statements are taken from SEC companyfacts only when the fact's filed date is on or before the snapshot.",
+    "Unread item 1.01 search hits remaining: 8476.",
+    "Search windows whose saved hits are below the count EDGAR reported: 1581.",
+    "Repeated companies are not independent observations. Distinct non-acquired companies: 126.",
+    "A control label of zero means the three EDGAR phrases returned no hit. It does not prove the company was never acquired.",
+    "Target snapshots are dated from a known announcement. They are case-control rows, not a random draw of the market.",
+    "Production close probabilities were not changed, and no model file was written by this script."
+  ]
+}

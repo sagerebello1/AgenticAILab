@@ -1,0 +1,5 @@
+{
+  "fitted": false,
+  "features": [],
+  "reason": "Not enough point-in-time rows to train. No acquisition probability was produced."
+}

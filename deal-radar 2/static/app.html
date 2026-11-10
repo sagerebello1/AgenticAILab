@@ -461,6 +461,7 @@ function paintStatus(){
     '<div class="cell"><small>Last stock price</small><b>' + esc(when(w.lastPriceRefresh)) + '</b><span>Delayed chart' + (w.priceSeconds ? ', ' + esc(every(w.priceSeconds).toLowerCase()) : '') + '. Not real-time.</span></div>' +
     '<div class="cell"><small>Companies shown</small><b>' + companyCount() + '</b><span>' + companyCountNote(w) + '</span></div>' +
     '<div class="cell"><small>Options chain</small><b>' + (opt.available ? 'Available' : 'Unavailable') + '</b><span>' + (opt.http ? 'HTTP ' + opt.http + '. ' : '') + 'Manual bid and ask only.</span></div>' +
+    '<div class="cell"><small>Acquisition model</small><b>' + ((STATUS.research && STATUS.research.trained) ? 'Trained' : 'Not trained') + '</b><span>' + esc((STATUS.research && STATUS.research.reason) || 'No point-in-time acquisition model has been trained. The close chance on a deal is not the chance a company will be acquired.') + '</span></div>' +
     (errs.length ? '<p class="err">' + esc(errs.join(' ')) + '</p>' : '');
 }
 function companyCount(){

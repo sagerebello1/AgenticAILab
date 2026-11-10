@@ -36,6 +36,7 @@ import options
 import quote
 import terms
 import workflow
+from predictive.status import public_status as research_status
 
 
 def load_env(path):
@@ -455,7 +456,8 @@ class Handler(BaseHTTPRequestHandler):
                                     "paid": [],
                                     "options": options.CHAIN,
                                     "optionsAudit": options.AUDIT,
-                                    "workflow": WORK.status()})
+                                    "workflow": WORK.status(),
+                                    "research": research_status()})
         if url.path == "/api/news":
             ticker = (q.get("ticker") or [""])[0].strip().upper()
             names = [x for x in (q.get("name", [""])[0], q.get("acquirer", [""])[0]) if x]

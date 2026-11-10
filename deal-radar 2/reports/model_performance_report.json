@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-11-09T18:36Z",
+  "trained": false,
+  "models": {
+    "acquisition": {
+      "trained": false,
+      "missing": [
+        "rows",
+        "positives",
+        "negatives",
+        "holdout"
+      ],
+      "horizons": {
+        "30": 8,
+        "90": 0,
+        "180": 0
+      }
+    },
+    "postAnnouncementPrice": {
+      "trained": false,
+      "missing": [
+        "deals"
+      ]
+    },
+    "dealClose": {
+      "trained": false,
+      "missing": [
+        "deals",
+        "terminations"
+      ]
+    }
+  },
+  "note": "No model was fit. Metrics that need a held-out prediction are null."
+}
