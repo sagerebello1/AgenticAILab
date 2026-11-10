@@ -1,0 +1,285 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Explore companies · Deal Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Brokerage quote screen: watchlist, one price, one order ticket. */
+:root{
+  --bg:#ffffff; --ink:#000000; --muted:#6e7278; --faint:#9aa0a6;
+  --line:#ececec; --soft:#f4f4f5; --surface:#ffffff; --surface2:#f4f4f5;
+  --up:#00c805; --down:#ff5000; --accent:#000000; --accent-bg:#f4f4f5;
+  --good:#00c805; --good-bg:#e9fbe8; --warn:#c47b00; --warn-bg:#fff6e5; --bad:#ff5000; --bad-bg:#fff1ea;
+  --shadow:none;
+  --head:'Inter',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif; --mono:'Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#000000; --ink:#ffffff; --muted:#a3a8b0; --faint:#6e7278;
+    --line:#2a2a2a; --soft:#141414; --surface:#000000; --surface2:#141414;
+    --accent:#ffffff; --accent-bg:#141414;
+    --good-bg:#062e0c; --warn-bg:#2a2108; --bad-bg:#2e1208;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--head);margin:0;letter-spacing:-.01em}
+
+.top{background:var(--bg);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.topbar{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:16px 28px}
+.brand{margin-right:auto}
+.lookup{display:flex;align-items:center;gap:8px}
+.lookup label{font-size:13px;font-weight:600;color:var(--muted)}
+.lookup input{width:168px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--soft)}
+.lookup input:focus{outline:none;border-color:var(--ink);background:var(--bg)}
+.lookup input::placeholder{color:var(--faint)}
+.lookup-result{max-width:1120px;margin:0 auto;padding:8px 28px 0;font-size:14px}
+.lookup-result:empty{display:none}
+.lookup-result.err{color:var(--down)}
+.tape-wrap{border-bottom:1px solid var(--line)}
+.tape{overflow:hidden}
+.tape-track{display:flex;width:max-content;align-items:center;min-height:38px;padding-left:28px;color:var(--muted);font-size:13.5px}
+.tape-track.run{animation:tape-scroll 50s linear infinite}
+.tape:hover .tape-track.run,.tape:focus-within .tape-track.run{animation-play-state:paused}
+.tape-set{display:flex}
+.tick{display:flex;align-items:baseline;gap:8px;padding:8px 22px;white-space:nowrap}
+.tick b{font-weight:600;color:var(--ink)}
+.tick .mv{font-weight:600;font-variant-numeric:tabular-nums}
+.tick.up .mv{color:var(--up)}
+.tick.down .mv{color:var(--down)}
+.tick.unchanged .mv{color:var(--muted)}
+.tick .tag,.tick.bad{color:var(--faint);font-size:12px}
+.tape-note{max-width:1120px;margin:0 auto;padding:0 28px 8px;color:var(--faint);font-size:12px}
+@keyframes tape-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){
+  .tape-track,.tape-track.run{animation:none}
+  .tape{overflow:visible}
+  .tape-track{width:auto;flex-wrap:wrap;padding-left:12px}
+}
+.brand h1{font-size:18px;font-weight:600;letter-spacing:-.03em}
+.guide{max-width:1120px;margin:0 auto;padding:18px 28px 0;color:var(--muted);font-size:14px}
+.status{max-width:1120px;margin:0 auto;padding:14px 28px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.status .cell{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.status small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
+.status b{display:block;font-size:14px;font-weight:600}
+.status span{display:block;color:var(--faint);font-size:12px;margin-top:2px}
+.status .err{grid-column:1 / -1;color:var(--down);font-size:13px}
+@media (max-width:700px){.status{grid-template-columns:1fr 1fr;padding-left:16px;padding-right:16px}}
+.btn{border:0;background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:600;font-size:14px}
+.btn:hover{opacity:.86}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--up);outline-offset:2px}
+
+.shell{display:grid;grid-template-columns:280px minmax(0,1fr);gap:8px 36px;max-width:1120px;margin:0 auto;padding:12px 28px 64px}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;padding:8px 16px 40px}
+  .topbar,.guide,.lookup-result,.tape-note{padding-left:16px;padding-right:16px}
+  .topbar{flex-wrap:wrap}
+  .lookup{order:3;width:100%;margin-left:0}
+  .lookup input{flex:1;min-width:0;width:auto}
+}
+
+.notice{margin:0 0 14px;padding:10px 14px;border-radius:10px;background:var(--accent-bg);font-size:13.5px}
+.notice.err{background:var(--bad-bg)}
+
+.list{align-self:start;padding-top:8px}
+.list h2{font-size:13px;font-weight:600;color:var(--muted);margin:8px 12px 4px}
+.list h2 .count{color:var(--ink);font-variant-numeric:tabular-nums}
+.list .hint{margin:0 12px 10px;color:var(--faint);font-size:12.5px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:1px;width:100%;text-align:left;background:transparent;border:0;border-radius:12px;padding:10px 12px;cursor:pointer}
+.item:hover{background:var(--soft)}
+.item[aria-current="true"]{background:var(--soft)}
+.item .nm{font-weight:600;font-size:14.5px}
+.item .tk{grid-column:1;color:var(--muted);font-size:12.5px}
+.item .act{grid-row:1;grid-column:2;font-weight:600;font-size:14px;text-align:right}
+.item .px{grid-row:2;grid-column:2;color:var(--muted);font-size:12.5px;text-align:right}
+.act.bid{color:var(--up)} .act.ask{color:var(--down)} .act.pass,.act.unknown,.act.terms_need_verification,.act.retrieval_failed,.act.parsing_failed,.act.no_relevant_filing{color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h3{font-size:16px;margin-bottom:4px}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 12px}
+
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+@media (max-width:900px){.stage{grid-template-columns:1fr}.ticket{order:-1}}
+.kicker{margin:0;color:var(--muted);font-size:13px;font-weight:600;letter-spacing:.04em}
+.read h2{font-size:28px;font-weight:600;letter-spacing:-.03em;margin:2px 0 6px}
+.lede{margin:0 0 18px;color:var(--muted);font-size:15px}
+.pxbig{font-size:52px;font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.pxsub{margin:8px 0 0;font-size:16px;font-weight:600}
+.pxsub.bid{color:var(--up)} .pxsub.ask{color:var(--down)} .pxsub.pass{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:26px 0 8px;padding-top:18px;border-top:1px solid var(--line)}
+@media (max-width:700px){.stats{grid-template-columns:1fr;gap:12px}}
+.stat small{display:block;color:var(--muted);font-size:13px;margin-bottom:2px}
+.stat b{font-size:22px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.stat span{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
+.map{position:relative;height:78px;margin:22px 8px 6px}
+.map-line{position:absolute;left:0;right:0;top:28px;height:2px;background:var(--line);border-radius:2px}
+.mark{position:absolute;top:22px;width:14px;height:14px;transform:translateX(-50%)}
+.mark i{display:block;width:10px;height:10px;border-radius:50%;background:var(--ink);border:2px solid var(--bg)}
+.mark.now{top:20px}
+.mark.now i{background:var(--up);width:14px;height:14px}
+.rows{margin-top:8px}
+.rows div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px}
+.rows b{font-weight:600;font-variant-numeric:tabular-nums}
+.rows .you{font-weight:600}
+.ticket{position:sticky;top:148px;border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;background:var(--surface)}
+.ticket h3{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:10px}
+.verb{display:block;border-radius:12px;padding:16px 16px 14px;margin-bottom:14px}
+.verb.bid{background:var(--up);color:#041204}
+.verb.ask{background:#1c1c1e;color:#fff}
+.verb.pass{background:var(--soft);color:var(--ink)}
+.verb strong{display:block;font-size:28px;letter-spacing:-.03em;line-height:1.1}
+.verb em{display:block;margin-top:4px;font-style:normal;font-size:14px;font-weight:500}
+.ticket .line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:14px}
+.ticket .line span{color:var(--muted)}
+.ticket .line b{font-weight:600;font-variant-numeric:tabular-nums}
+.ticket .say{margin:10px 0 0;font-size:14px}
+.ticket .fine{margin-top:12px}
+a{color:var(--accent)}
+
+.banner{border-radius:14px;padding:20px 22px;margin-bottom:16px;border:1px solid transparent;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;align-items:center}
+@media (max-width:760px){.banner{grid-template-columns:1fr}}
+.banner.buy{background:var(--good-bg);border-color:color-mix(in srgb,var(--good) 30%,transparent)}
+.banner.fair{background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.banner.avoid{background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
+.banner.unknown{background:var(--surface2);border-color:var(--line)}
+.banner .lab{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.banner.buy .lab,.banner.buy .big{color:var(--good)}
+.banner.fair .lab,.banner.fair .big{color:var(--warn)}
+.banner.avoid .lab,.banner.avoid .big{color:var(--bad)}
+.banner .big{font-family:var(--head);font-size:34px;font-weight:700;line-height:1.1;margin:2px 0 6px}
+.banner p{margin:0;font-size:15px}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{background:color-mix(in srgb,var(--surface) 70%,transparent);border-radius:10px;padding:10px 12px}
+.key small{display:block;font-size:11.5px;color:var(--muted)}
+.key b{font-family:var(--mono);font-weight:500;font-size:18px}
+
+.scen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media (max-width:900px){.scen{grid-template-columns:1fr}}
+.sc{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:14px;padding:16px 16px 14px;box-shadow:var(--shadow)}
+.sc.close{--c:var(--good)} .sc.pending{--c:var(--warn)} .sc.break{--c:var(--bad)}
+.sc .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sc .t b{font-family:var(--head);font-size:16px}
+.sc .p{font-family:var(--mono);font-size:22px;color:var(--c)}
+.sc .d{color:var(--muted);font-size:13px;margin:4px 0 12px;min-height:58px}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;padding:5px 0;border-top:1px solid var(--line)}
+.row span:first-child{color:var(--muted)}
+.row b{font-family:var(--mono);font-weight:500}
+
+.bar{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:2px;margin:6px 0 4px}
+.bar div{display:flex;align-items:center;justify-content:center;color:#fff;font-size:12.5px;font-family:var(--mono);min-width:0;overflow:hidden;white-space:nowrap}
+.bar .b1{background:var(--good)} .bar .b2{background:#c88a1a} .bar .b3{background:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+svg.ladder{width:100%;min-width:560px;height:auto;display:block;margin-top:8px}
+.lwrap{overflow-x:auto}
+svg text{font-family:var(--body);fill:var(--muted);font-size:11.5px}
+svg text.v{font-family:var(--mono);fill:var(--ink);font-size:12.5px}
+
+.two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+.two .card{margin-bottom:0}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.field input,.field select{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);font-family:var(--mono);font-size:14px}
+.field input:focus,.field select:focus{border-color:var(--accent);outline:none;background:var(--surface)}
+.field .hint{font-size:11.5px;color:var(--faint);margin-top:3px}
+.assumed{outline:0;border-color:var(--warn)!important}
+.slider{margin-bottom:14px}
+.slider .top2{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px}
+.slider .top2 b{font-family:var(--mono);font-weight:500}
+.slider input{width:100%;accent-color:var(--accent)}
+.slider .hint{font-size:12px;color:var(--faint)}
+.cmp{display:grid;gap:10px;margin:8px 0 12px}
+.cmp .l{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:3px}
+.cmp .l b{font-family:var(--mono);font-weight:500}
+.cmp .tr{height:12px;background:var(--surface2);border-radius:6px;overflow:hidden}
+.cmp .tr i{display:block;height:100%;border-radius:6px}
+.drv{list-style:none;padding:0;margin:0}
+.drv li{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.drv li:first-child{border-top:0}
+.drv .dl{font-family:var(--mono);font-size:12.5px;min-width:52px;text-align:right;padding-top:1px}
+.drv .dl.up{color:var(--good)} .drv .dl.down{color:var(--bad)} .drv .dl.zero{color:var(--faint)}
+.drv small{display:block;color:var(--muted);font-size:12.5px}
+blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid var(--line);color:var(--muted);font-size:13px;background:var(--surface2);border-radius:0 8px 8px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:12px;background:var(--surface2);padding:3px 10px;border-radius:99px;color:var(--muted)}
+details{font-size:14px}
+summary{cursor:pointer;font-weight:600;font-family:var(--head)}
+details p,details li{color:var(--muted);font-size:13.5px}
+.fine{font-size:12.5px;color:var(--faint);margin-top:18px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+</style>
+<style>
+.xpage{max-width:1120px;margin:0 auto;padding:30px 28px 64px}.topbar a,.xpage a.btn{text-decoration:none}.back{color:var(--muted);font-size:14px}.topbar .brand{color:var(--ink)}
+.xpage h2{font-size:28px;font-weight:600;letter-spacing:-.03em;margin:3px 0 7px}.xpage h3{font-size:16px}.toolbar,.commands{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0}.toolbar select{padding:7px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.company{display:flex;flex-direction:column;text-align:left;align-items:flex-start;text-decoration:none;color:var(--ink);margin:0;min-height:104px}.company:hover{background:var(--soft);border-color:var(--faint)}.company b{margin:3px 0 5px;font-weight:600}.reason{border-top:1px solid var(--line);padding-top:8px;margin:8px 0 0;width:100%;font-size:12px;color:var(--muted)}.xpage a:not(.btn):not(.company){color:var(--ink)}.detail-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(210px,300px);gap:24px}.report{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding:10px 0;font-size:14px}.report span{color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-grid{grid-template-columns:1fr}.xpage{padding:22px 16px}}
+@media(max-width:490px){.grid{grid-template-columns:1fr}.topbar{gap:8px}.topbar .btn{padding:7px 10px}}
+</style></head><body>
+<header class="top"><nav class="topbar"><a href="/" class="brand"><h1>Deal Radar</h1></a><a href="/" class="btn ghost">Deals</a><a id="browseNav" href="#browse" class="btn">Explore companies</a><a id="watchNav" href="#watch" class="btn ghost">Watchlist</a></nav></header>
+<main class="xpage"><div id="directory"><h2 id="title">Explore companies</h2><p class="lede" id="intro">Browse listed companies with recent SEC filing activity.</p>
+<div class="toolbar"><label for="feed">Activity</label><select id="feed"><option value="all">All recent filings</option><option value="ma">M&amp;A-related filings</option></select><label for="sector">Industry</label><select id="sector"><option>All industries</option></select><label><input type="checkbox" id="onlyDeals"> Only show companies with deal analysis</label><span id="count" class="sub" style="margin:0"></span></div><p id="fresh" class="sub" role="status"></p><div class="grid" id="grid" aria-live="polite">Loading company directory…</div></div><section id="profile" hidden></section><p id="msg" class="sub" role="status"></p></main>
+<script>
+const el=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const key='dealradar.explore.watch.v1';let saved=[],companies=[],stored={},updated='',stale=false,busy=false,back='#browse',loaded=false,failed=false,gen=0;const profiles=new Map();
+try{const a=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(a))saved=a.filter(x=>typeof x==='string')}catch{}
+try{stored=JSON.parse(localStorage.getItem(key+'.companies')||'{}')||{}}catch{}
+function persist(){try{localStorage.setItem(key+'.companies',JSON.stringify(Object.fromEntries(saved.filter(t=>stored[t]).map(t=>[t,stored[t]]))))}catch{}}
+async function get(url){const r=await fetch(url);if(!r.ok)throw Error();return r.json()}
+
+const checks=new Map();let readyTickers=new Set(),availability='pending',pendingTimer;
+function analysisReady(t){const state=checks.get(t)?.state;return state==='eligible'||(!state&&readyTickers.has(t));}
+function checkView(t){
+ const r=checks.get(t),url='/?symbol='+encodeURIComponent(t);
+ if(r?.state==='loading')return '<p role="status" class="sub">Checking recent filings…</p>';
+ if(analysisReady(t))return '<a class="btn ghost" href="'+url+'">View deal analysis</a>';
+ if(r?.state==='none')return '<p role="status" class="sub">No qualifying filing was found in the past 120 days.</p>';
+ if(r?.state==='ineligible')return '<p role="status" class="sub">A filing was found, but there isn’t enough verified information for a deal analysis.</p>';
+ return (r?.state==='error'?'<p role="status" class="sub">The check could not be completed.</p>':'')+'<button type="button" class="btn ghost" id="checkDeal">'+(r?.state==='error'?'Retry deal check':'Check for a deal')+'</button>';
+}
+async function checkDeal(t){
+ if(checks.get(t)?.state==='loading')return;
+ checks.set(t,{state:'loading'});draw();
+ try{const r=await get('/api/symbol?ticker='+encodeURIComponent(t));checks.set(t,{state:r.ok&&['eligible','none','ineligible'].includes(r.dealCheckStatus)?r.dealCheckStatus:'error'});}
+ catch{checks.set(t,{state:'error'})}
+ if(location.hash==='#company/'+t)draw();
+}
+function nav(w){el('browseNav').className='btn'+(w?' ghost':'');el('watchNav').className='btn'+(w?'':' ghost');el('watchNav').textContent='Watchlist ('+saved.length+')'}
+function draw(){
+ const seq=++gen,w=location.hash==='#watch',ticker=location.hash.startsWith('#company/')?location.hash.slice(9):null,c=companies.find(v=>v.ticker===ticker)||stored[ticker];nav(w||!!c&&back==='#watch');el('directory').hidden=!!c;el('profile').hidden=!c;
+ if(!c){el('title').textContent=w?'Your watchlist':'Explore companies';el('intro').textContent=w?'Companies saved in this browser, including those no longer in the current feed.':el('feed').value==='ma'?'Public filings matching a merger-agreement search or a tender-offer filing. A match identifies a filer, not necessarily a takeover target.':'Companies surfaced by recent SEC filings. Select a card to inspect the source.';
+ const ma=!w&&el('feed').value==='ma',pool=w?saved.map(t=>companies.find(v=>v.ticker===t)||stored[t]||{ticker:t,name:t,industry:'Unclassified'}):companies.filter(v=>!ma||v.merger);
+ el('feed').disabled=w;const prior=el('sector').value;const groups=[...new Set(pool.map(v=>v.industry))].sort();el('sector').innerHTML=['All industries',...groups].map(g=>'<option>'+esc(g)+'</option>').join('');if(groups.includes(prior))el('sector').value=prior;
+ const only=el('onlyDeals').checked;const rows=pool.filter(v=>(!only||analysisReady(v.ticker))&&(el('sector').value==='All industries'||el('sector').value===v.industry)).sort((a,b)=>String((ma?b.merger:b.latest)?.date||'').localeCompare(String((ma?a.merger:a.latest)?.date||''))||a.name.localeCompare(b.name));
+ el('count').textContent=loaded?rows.length+' '+(rows.length===1?'company':'companies'):'';
+ el('fresh').textContent=(failed||stale?'SEC refresh unavailable. Showing previously loaded data where available. ':'')+(updated?'Last successful check: '+new Date(updated).toLocaleString()+'. ':'')+(w?'': 'Checks every 5 min while open. Up to 100 SEC search hits per query: recent reports (7 days), merger agreements and tender offers (30 days).');
+ el('grid').innerHTML=(failed?'<button class="btn ghost" id="retry">Retry SEC directory</button>':'')+(rows.map(v=>{const d=ma?v.merger:v.latest,why=d?(d.accession===v.merger?.accession?'M&amp;A filing signal':'Recent filing')+' · '+esc(d.form)+' · '+esc(d.date):'Saved company';return '<article class="card company"><a style="width:100%;color:inherit;text-decoration:none;display:flex;flex-direction:column" data-company href="#company/'+encodeURIComponent(v.ticker)+'"><span class="kicker">'+esc(v.ticker)+'</span><b>'+esc(v.name)+'</b><span class="sub">'+esc(v.industry)+'</span><span class="reason">'+why+'</span></a>'+(analysisReady(v.ticker)?'<a class="btn ghost" style="margin-top:12px" href="/?symbol='+encodeURIComponent(v.ticker)+'">View deal analysis</a>':'')+'</article>'}).join('')||(!loaded?'Loading SEC activity…':only&&availability==='pending'?'Checking available deal analyses…':only&&availability==='unavailable'?'Deal availability could not be checked.':only?'No confirmed analyses match these filters. Uncheck the box to browse all matching filings.':w?'No saved companies in this view.':failed?'':'No listed companies matched this view.'));return;}
+ const d=(el('feed').value==='ma'?c.merger:null)||c.latest||c.merger,sec='https://www.sec.gov/edgar/browse/?CIK='+encodeURIComponent(c.cik);
+ const names={'10-Q':'a quarterly financial report','10-K':'an annual financial report','8-K':'a company event update','SC TO-T':'a tender-offer filing'};
+ const isSignal=d&&d.accession===c.merger?.accession;
+ const lead=d?('On '+esc(d.date)+', '+esc(c.ticker)+' filed '+(isSignal&&d.form.startsWith('8-K')?'an event update referencing a merger agreement':d.form.endsWith('/A')?'an amendment to an earlier filing':names[d.form]||'a '+esc(d.form)+' report')+'.'):'Public filings and company updates for '+esc(c.ticker)+'.';
+ el('profile').innerHTML='<a class="back" href="'+back+'">← Back to '+(back==='#watch'?'watchlist':'companies')+'</a><div class="commands"><div><div class="kicker">'+esc(c.ticker)+' · '+esc(c.industry)+'</div><h2>'+esc(c.name)+'</h2><p class="lede">'+lead+'</p></div></div><div class="detail-grid"><div><div class="card"><h3>Latest filing, in brief</h3><div id="brief" aria-live="polite">Reading the SEC document…</div></div><div class="card"><h3>Company filings</h3><div id="reports">Checking SEC…</div><a class="back" href="'+sec+'" target="_blank" rel="noopener">View SEC profile ↗</a></div></div><aside class="card" style="align-self:start"><h3>Follow this company</h3><div class="commands"><button class="btn" id="save">'+(saved.includes(c.ticker)?'Remove from watchlist':'Save to watchlist')+'</button></div>'+(d?'<p class="sub"><a href="'+esc(d.url)+'" target="_blank" rel="noopener">Activity filing · '+esc(d.form)+' ↗</a></p>':'')+checkView(c.ticker)+'</aside></div>';
+ (async()=>{try{let p=profiles.get(c.ticker);if(!p){p=await get('/api/explore/profile?ticker='+encodeURIComponent(c.ticker));profiles.set(c.ticker,p)}if(seq!==gen)return;
+ const f=p.filings[0],v=f?.brief;el('brief').innerHTML=f?'<p class="sub">'+esc(f.label||f.form)+' · '+esc(f.form)+' · '+esc(f.date)+'</p>'+(v?'<p>'+esc(v.what)+'</p>'+(v.relation?'<p>'+esc(v.relation)+'</p>':'')+(v.evidence?'<details><summary>Supporting passage</summary><blockquote>'+esc(v.evidence)+'</blockquote></details>':''):'<p>We could not verify a summary from the primary document.</p>')+'<p><a class="back" target="_blank" rel="noopener" href="'+esc(f.document||f.url)+'">Read original filing ↗</a></p>':'No recent filing available.';
+ el('reports').innerHTML='<p class="sub">'+esc([p.classification,...(p.exchanges||[])].filter(Boolean).join(' · '))+'</p>'+p.filings.map(f=>'<a class="report" target="_blank" rel="noopener" href="'+esc(f.url)+'"><b>'+esc(f.label||f.form)+' · '+esc(f.form)+'</b><span>'+esc(f.date)+' ↗</span></a>').join('');
+ }catch{if(seq===gen){el('brief').textContent='Summary unavailable. Open the SEC profile to check the filing.';el('reports').textContent='Recent reports unavailable.'}}})();
+}
+async function load(){
+ if(busy)return;busy=true;
+ try{const r=await get('/api/explore');companies=r.companies;readyTickers=new Set(r.eligibleTickers||[]);availability=r.availability;clearTimeout(pendingTimer);if(availability==='pending')pendingTimer=setTimeout(load,5000);if(updated&&updated!==r.updatedAt){for(const [t,v] of checks)if(v.state!=='loading')checks.delete(t)}updated=r.updatedAt;stale=r.stale;failed=false;profiles.clear();for(const c of companies)if(saved.includes(c.ticker))stored[c.ticker]=c;persist();}
+ catch{failed=true}finally{busy=false;loaded=true;draw()}
+}
+const hydrating=new Set();
+async function route(){const t=location.hash.startsWith('#company/')?location.hash.slice(9):null;
+ if(t&&!companies.some(c=>c.ticker===t)&&!stored[t]&&!hydrating.has(t)){
+ hydrating.add(t);try{const p=await get('/api/explore/profile?ticker='+encodeURIComponent(t));stored[t]=p;profiles.set(t,p);if(saved.includes(t))persist()}catch{if(location.hash==='#company/'+t)el('msg').textContent='Company details unavailable.'}finally{hydrating.delete(t)}}
+ draw()}
+document.addEventListener('click',e=>{if(e.target.closest('[data-company]'))back=location.hash==='#watch'?'#watch':'#browse';if(e.target.id==='retry')load();if(e.target.id==='checkDeal')checkDeal(location.hash.slice(9));if(e.target.id==='save'){const t=location.hash.slice(9),next=saved.includes(t)?saved.filter(v=>v!==t):[...saved,t];try{localStorage.setItem(key,JSON.stringify(next));saved=next;const item=companies.find(c=>c.ticker===t);if(item)stored[t]=item;persist();draw();el('msg').textContent=t+(saved.includes(t)?' saved.':' removed.')}catch{el('msg').textContent='Browser storage unavailable.'}}});
+window.onhashchange=()=>{el('msg').textContent='';route();window.scrollTo(0,0)};el('sector').onchange=draw;el('feed').onchange=draw;el('onlyDeals').onchange=draw;
+draw();load().then(route);setInterval(()=>{if(!document.hidden)load()},300000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+</script></body></html>

@@ -28,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import edgar
+import explore
 import features
 import market
 import model as model_mod
@@ -343,10 +344,10 @@ def _search_company_deals(company, today):
             "message": "No merger agreement or tender offer for this company in the last %d days. The company list is unchanged. That is not a close chance of zero." % LOOKBACK_DAYS}
 
 
-def _symbol_result(company, source, message, deal=None, added=False, already=False, eligible=False):
+def _symbol_result(company, source, message, deal=None, added=False, already=False, eligible=False, check_status="unavailable"):
     return {
         "ok": True, "symbol": company["ticker"], "name": company["name"], "cik": company.get("cik"),
-        "nameSource": source, "added": added, "alreadyListed": already, "eligible": eligible,
+        "dealCheckStatus": "eligible" if eligible else check_status, "nameSource": source, "added": added, "alreadyListed": already, "eligible": eligible,
         "deal": deal, "message": message,
     }
 
@@ -398,7 +399,7 @@ def lookup_symbol(raw, today=None, find_company=None, search_deals=None, identit
             message = lead + "Already in the company list. A second row was not added."
         else:
             message = lead + "Already tracked, and it stays off the sidebar. " + (existing.get("note") or "The filing does not have a complete cash quote.")
-        return _symbol_result(company, source, message, deal=existing, already=True, eligible=eligible)
+        return _symbol_result(company, source, message, deal=existing, already=True, eligible=eligible, check_status="unavailable" if existing.get("filingStatus") in ("retrieval_failed","parsing_failed") else "ineligible")
 
     if source != "sec-company-tickers" or not company.get("cik"):
         if sec_error:
@@ -414,7 +415,7 @@ def lookup_symbol(raw, today=None, find_company=None, search_deals=None, identit
     message = "Name from the SEC company list. " + (found.get("message") or "The company list is unchanged.")
     if found.get("status") == "added" and found.get("deal"):
         return _symbol_result(company, source, message, deal=WORK.include(found["deal"]), added=True, eligible=True)
-    return _symbol_result(company, source, message)
+    return _symbol_result(company, source, message, check_status=found.get("status","unavailable"))
 
 
 def page():
@@ -443,6 +444,25 @@ class Handler(BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(url.query)
         if url.path == "/":
             return self._send(200, page(), "text/html")
+        if url.path == "/explore":
+            with open(os.path.join(HERE, "static", "explore.html"), encoding="utf-8") as f:
+                return self._send(200, f.read(), "text/html")
+        if url.path == "/api/explore":
+            try:
+                directory = explore.directory(EDGAR_UA)
+                book = WORK.payload()
+                ready = sorted({d["ticker"] for d in book["deals"] if d.get("ticker") and workflow.listed_company(d)})
+                return self._send(200, dict(directory, eligibleTickers=ready,
+                    availability="ready" if ready or book.get("scannedAt") else ("unavailable" if book["mode"] == "error" else "pending")))
+            except (edgar.EdgarError, OSError, ValueError):
+                return self._send(503, {"error": "SEC directory unavailable. Please retry."})
+        if url.path == "/api/explore/profile":
+            try:
+                return self._send(200, explore.profile(EDGAR_UA, q.get("ticker", [""])[0]))
+            except KeyError:
+                return self._send(404, {"error": "Company not in this directory."})
+            except (edgar.EdgarError, OSError, ValueError):
+                return self._send(503, {"error": "The SEC filing history could not be retrieved."})
         if url.path == "/api/status":
             try:
                 import yfinance  # noqa: F401

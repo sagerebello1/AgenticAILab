@@ -218,6 +218,7 @@ details p,details li{color:var(--muted);font-size:13.5px}
 <header class="top">
   <div class="topbar">
     <div class="brand"><h1>Deal Radar</h1></div>
+    <a class="btn ghost" style="text-decoration:none" href="/explore">Explore companies</a>
     <form class="lookup" id="lookupForm" role="search">
       <label for="tickerInput">Symbol</label>
       <input id="tickerInput" name="ticker" type="text" placeholder="AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" aria-label="Stock symbol">
@@ -238,7 +239,7 @@ details p,details li{color:var(--muted);font-size:13.5px}
 
 <main class="shell">
   <aside class="list" id="list" aria-label="Companies being bought"></aside>
-  <section id="detail" aria-live="polite"></section>
+  <div><section id="symbolPanel" class="read" aria-live="polite" hidden></section><section id="detail" aria-live="polite"></section></div>
 </main>
 
 <script>
@@ -529,7 +530,7 @@ function paintList(){
   const count = visible.length === 1 ? '1 company' : visible.length + ' companies';
   $('list').innerHTML = '<h2>Companies <span class="count">' + count + '</span></h2><p class="hint">Buy, sell, or wait, and only when the filing stated a cash price and the quote has a stock price and a break price.</p>' +
     (rows || '<div class="empty">No company has a quoted cash price and a complete quote.</div>');
-  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => select(b.dataset.id)));
+  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => {clearSymbolFocus();select(b.dataset.id);}));
   paintStatus();
 }
 
@@ -1024,6 +1025,7 @@ function setDeals(list){
   const keepOpen = editing && SELECTED;
   DEALS = list;
   DEALS.forEach(takeServerPrices);
+  if(symbolFocus){resolveSymbol(symbolFocus);return;}
   if (!shownDeal(DEALS.find(d => d.id === SELECTED))){
     let best = null, gap = -1, ready = null, spread = -1;
     DEALS.forEach(d => {
@@ -1136,6 +1138,23 @@ async function loadIndices(){
     $('tapeNote').textContent = 'The index chart did not answer. No numbers were filled in.';
   }
 }
+// A symbol landing page stays pinned through concurrent SEC scans.
+let symbolFocus=null;
+function clearSymbolFocus(){
+  symbolFocus=null; $('symbolPanel').hidden=true; $('detail').hidden=false;
+  if(new URLSearchParams(location.search).has('symbol'))history.replaceState(null,'',location.pathname);
+}
+function symbolPanel(f,message){
+  SELECTED=null; $('detail').hidden=true; $('symbolPanel').hidden=false;
+  $('symbolPanel').innerHTML='<p class="kicker">'+esc(f.ticker)+'</p><h2>'+esc(f.name||f.ticker)+'</h2><div class="card"><h3>Deal analysis</h3><p>'+esc(message)+'</p><a href="/explore#company/'+encodeURIComponent(f.ticker)+'">View company filings in Explore</a></div>';
+  paintList();
+}
+function resolveSymbol(f){
+  if(f!==symbolFocus)return;
+  const row=DEALS.find(d=>(d.ticker||'').toUpperCase()===f.ticker&&shownDeal(d));
+  if(row){$('symbolPanel').hidden=true;$('detail').hidden=false;select(row.id);}
+  else symbolPanel(f,f.message);
+}
 function upsertSearched(deal){
   if (!deal || !deal.id) return;
   const ticker = (deal.ticker || '').toUpperCase();
@@ -1163,21 +1182,27 @@ async function searchSymbol(event){
     btn.textContent = 'Search';
     return;
   }
+  const focus={ticker:ticker.toUpperCase(),name:'',message:'Checking SEC filings for '+ticker.toUpperCase()+'…'};
+  symbolFocus=focus;history.replaceState(null,'','/?symbol='+encodeURIComponent(focus.ticker));resolveSymbol(focus);
   try{
     const res = await getJson('/api/symbol?ticker=' + encodeURIComponent(ticker), 90000);
+    if(symbolFocus!==focus)return;
     if (!res.ok){
+      focus.message=res.error||'Company lookup unavailable.';resolveSymbol(focus);
       result.className = 'lookup-result err';
       result.textContent = res.error || 'That symbol could not be looked up. Nothing was added.';
       return;
     }
     result.className = 'lookup-result';
     result.textContent = res.symbol + ' — ' + res.name + ' ' + (res.message || '');
-    if (res.deal && (res.added || res.alreadyListed)) upsertSearched(res.deal);
+    focus.name=res.name;focus.ticker=(res.symbol||focus.ticker).toUpperCase();focus.message=res.message||'No qualifying deal quote is available.';
+    if(res.deal)upsertSearched(res.deal);resolveSymbol(focus);
   }catch(e){
     result.className = 'lookup-result err';
     result.textContent = e && e.name === 'AbortError'
       ? 'The lookup timed out. The company list was left as it was, and no name was filled in.'
       : 'The lookup did not answer. The company list was left as it was.';
+    if(symbolFocus===focus){focus.message=result.textContent;resolveSymbol(focus);}
   }finally{
     btn.disabled = false;
     btn.textContent = 'Search';
@@ -1193,11 +1218,14 @@ function note(msg, err){
 }
 
 (async function start(){
+  if(location.hash === "#explore"){location.replace("/explore");return;}
   paintList();
   $('detail').innerHTML = '<div class="card empty">Reading SEC filings…</div>';
   paintPills();
   $('scanBtn').addEventListener('click', () => scan(true));
   $('lookupForm').addEventListener('submit', searchSymbol);
+  const incoming = new URLSearchParams(location.search).get('symbol');
+  if (incoming && /^[A-Za-z0-9.-]{1,12}$/.test(incoming)) { $('tickerInput').value = incoming; $('lookupForm').requestSubmit(); }
   loadIndices();
   setInterval(loadIndices, 300000);
   try{
