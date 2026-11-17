@@ -9,6 +9,8 @@ Premiums, Greeks, and contract symbols stay empty until someone types them.
 import math
 from datetime import datetime, timezone
 
+import put_benchmark
+
 CHAIN = {
     "available": False,
     "provider": "Yahoo Finance options endpoint",
@@ -256,4 +258,81 @@ def analyze(payload):
         "call": call,
         "put": put,
         "placesTrades": False,
+        "putBenchmark": put_comparison(payload),
+    }
+
+
+_BENCHMARK_NOTES = (
+    "Black-Scholes is the conventional baseline. It uses one volatility and today's stock price.",
+    "The DealRadar figure weights the existing close, pending, and break scenarios. That difference is not a claim that DealRadar is more accurate.",
+    "The close probability is a filing-based heuristic, not a trained predictive model.",
+    "A difference between the two prices does not establish pricing accuracy or profitability.",
+    "Historical market pricing accuracy has not been validated.",
+)
+
+
+def _present(value):
+    return value is not None and value != ""
+
+
+def put_comparison(payload):
+    """Map one research payload onto put_benchmark. Missing fields stay missing."""
+    payload = payload or {}
+    put = payload.get("put") if isinstance(payload.get("put"), dict) else {}
+    assumptions = {}
+
+    def keep(name, value):
+        if _present(value):
+            assumptions[name] = value
+
+    keep("spot", payload.get("spot"))
+    keep("strike", put.get("strike"))
+    keep("days", put.get("days"))
+    keep("rate", payload.get("rate"))
+    keep("volatility", put.get("iv"))
+    keep("downside", payload.get("downside"))
+    keep("days_to_close", payload.get("daysToClose"))
+    keep("consideration", payload.get("consideration"))
+    keep("offer", payload.get("offer"))
+    keep("exchange_ratio", payload.get("exchangeRatio"))
+    keep("acquirer_price", payload.get("acquirerPrice"))
+    keep("cash_amount", payload.get("cashAmount"))
+    keep("p_close", payload.get("pClose"))
+    keep("p_pending", payload.get("pPending"))
+    keep("market_premium", put.get("ask"))
+    keep("bump", payload.get("bump"))
+    raw = put_benchmark.benchmark(assumptions)
+    black = raw.get("black_scholes")
+    aware = raw.get("scenario_value")
+    percent = None
+    if black is not None and aware is not None and black != 0:
+        percent = (aware - black) / black
+    scenes = None
+    if raw.get("scenarios"):
+        scenes = [{
+            "key": item.get("key"),
+            "weight": item.get("weight"),
+            "spot": item.get("spot"),
+            "value": item.get("value"),
+        } for item in raw["scenarios"]]
+    return {
+        "blackScholes": black,
+        "maAware": aware,
+        "absoluteDifference": raw.get("difference"),
+        "percentDifference": percent,
+        "consideration": raw.get("consideration"),
+        "acquisitionLevel": raw.get("acquisition_level"),
+        "marketPremium": raw.get("market_premium"),
+        "pricingErrorBlackScholes": raw.get("pricing_error_black_scholes"),
+        "pricingErrorScenario": raw.get("pricing_error_scenario"),
+        "expiresBeforeClose": raw.get("expires_before_close"),
+        "resolve": raw.get("resolve"),
+        "pClose": raw.get("p_close"),
+        "pPending": raw.get("p_pending"),
+        "otm": raw.get("otm"),
+        "moneyness": raw.get("moneyness"),
+        "scenarios": scenes,
+        "missing": list(raw.get("missing") or []),
+        "reason": raw.get("reason"),
+        "notes": list(_BENCHMARK_NOTES),
     }

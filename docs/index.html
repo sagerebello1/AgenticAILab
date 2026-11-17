@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DealRadar</title>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header>DealRadar</header>
+<main>
+  <h1>The M&amp;A put comparison is not ready for a market test.</h1>
+  <p class="lede">This page publishes the current research notes. The interactive scanner still runs on your computer with the Python server. GitHub Pages cannot run that server, and this site does not fetch prices or filings.</p>
+  <p>Of the 749 verified target filings, none have the announcement-date inputs the existing put benchmark needs. The count is 0 cash, 0 stock, and 0 mixed. A downside price and an expected close known on the announcement date are missing throughout. Stock and mixed filings also have no acquirer price.</p>
+  <nav>
+    <a href="notes/announcement-inputs.html"><strong>Announcement inputs</strong><span>What the 749 filings store, and what the saved text still does not yield.</span></a>
+    <a href="notes/put-sensitivity.html"><strong>Hypothetical sensitivity</strong><span>How Black-Scholes and the three-scenario put move when the inputs change. Not a market test.</span></a>
+    <a href="notes/realized-payoff.html"><strong>Realized stock payoff</strong><span>Coverage of stored offers and later stock closes. No option premium was available.</span></a>
+  </nav>
+  <p class="note">To use the scanner locally, run <code>python3 -u server.py</code> from the DealRadar folder and open <code>http://127.0.0.1:8000</code>.</p>
+</main>
+</body>
+</html>

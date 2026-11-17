@@ -184,6 +184,16 @@ svg text.v{font-family:var(--mono);fill:var(--ink);font-size:12.5px}
 @media (max-width:900px){.two{grid-template-columns:1fr}}
 .two .card{margin-bottom:0}
 .form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.optgrid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:8px}
+#optcard{container-type:inline-size}
+#optcard .form{grid-template-columns:1fr}
+.putbench{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);container-type:inline-size}
+.putbench h3{margin:16px 0 6px;font-size:15px}
+.putbench .stats,.putbench .scen{grid-template-columns:1fr;margin-top:8px}
+@container (min-width:560px){
+  #optcard .form,.optgrid{grid-template-columns:1fr 1fr}
+  .putbench .stats,.putbench .scen{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
 .field input,.field select{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);font-family:var(--mono);font-size:14px}
 .field input:focus,.field select:focus{border-color:var(--accent);outline:none;background:var(--surface)}
@@ -417,6 +427,7 @@ function initState(d){
     consideration: d.consideration || 'cash', dtc,
     pClose: filing, pPending: Math.min(0.97, Math.max(0.2, filing - 0.06)), resolveManual: false, pCloseManual: false,
     optStrike: null, optDays: null, optCallBid: null, optCallAsk: null, optPutBid: null, optPutAsk: null, optIv: null,
+    optRatio: null, optAcquirerPx: null, optCashPart: null,
     pBase: filing, newsAdj: 0, news: null, timing: d.timing || null
   };
   s.resolve = autoResolve(s);
@@ -632,11 +643,14 @@ function onEdit(el){
     if (k === 'spot') s.spotEdited = true;
     if (k === 'downside') s.downEdited = true;
     if (k === 'offer') s.offerEdited = true;
+    if (k === 'dtc') s.dtcEdited = true;
   }
   if ((k === 'days' || k === 'dtc') && !s.resolveManual && s.days > 0 && s.dtc > 0) s.resolve = autoResolve(s);
   syncInputs(el);
   paint();
   paintList();
+  const current = DEALS.find(x => x.id === SELECTED);
+  if (current) refreshOptions(current);
 }
 function syncInputs(skip){
   const s = STATE[SELECTED];
@@ -679,9 +693,23 @@ function paintOptions(d){
       optInput('o_pbid', 'Put bid ($)', '0.01', s.optPutBid) +
       optInput('o_pask', 'Put ask ($)', '0.01', s.optPutAsk) +
       optInput('o_iv', 'Implied volatility, if you have it (%)', '1', s.optIv) +
-    '</div><p class="sub" id="optstatus" style="margin-top:10px"></p><div id="optcmp" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px"></div>';
+      benchInputs(d) +
+    '</div><p class="sub" id="optstatus" style="margin-top:10px"></p><div id="optcmp" class="optgrid"></div><div id="putbench" class="putbench"></div>';
   box.querySelectorAll('input').forEach(el => el.addEventListener('input', () => refreshOptions(d)));
   refreshOptions(d);
+}
+function benchInputs(d){
+  if (d.consideration !== 'stock' && d.consideration !== 'mixed') return '';
+  const s = STATE[d.id];
+  return optInput('o_ratio', 'Exchange ratio', '0.01', s.optRatio) +
+    optInput('o_acquirer', 'Acquirer stock price ($)', '0.01', s.optAcquirerPx) +
+    (d.consideration === 'mixed' ? optInput('o_cashpart', 'Cash per share in the mix ($)', '0.01', s.optCashPart) : '');
+}
+function filingCloseDays(d, s){
+  if (s.dtcEdited && s.dtc > 0) return s.dtc;
+  if (d.daysToClose != null && d.daysToClose > 0) return d.daysToClose;
+  const left = daysUntil(d.expectedClose);
+  return left || null;
 }
 function optVal(id){
   const el = $(id);
@@ -699,6 +727,9 @@ function refreshOptions(d){
   s.optPutBid = optVal('o_pbid');
   s.optPutAsk = optVal('o_pask');
   s.optIv = optVal('o_iv');
+  s.optRatio = optVal('o_ratio');
+  s.optAcquirerPx = optVal('o_acquirer');
+  s.optCashPart = optVal('o_cashpart');
   clearTimeout(optTimer);
   optTimer = setTimeout(() => postOptions(d), 200);
 }
@@ -708,13 +739,19 @@ async function postOptions(d){
   const leg = (bid, ask) => ({strike: s.optStrike, days: s.optDays, bid, ask, iv: s.optIv == null ? null : s.optIv / 100, multiplier: 100, deliverable: 100});
   try{
     const r = await fetch('/api/options', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
-      spot: s.spot, offer: s.offer, downside: s.downside, pClose: s.pClose, filingStatus: d.filingStatus, note: d.note, flags: d.flags, catalyst: d.catalyst,
+      spot: s.spot, offer: s.offer, downside: s.downside, rate: s.rate, bump: s.bump,
+      pClose: s.pClose, pPending: s.pPending, daysToClose: filingCloseDays(d, s),
+      consideration: d.consideration || null, exchangeRatio: s.optRatio, acquirerPrice: s.optAcquirerPx,
+      cashAmount: s.optCashPart != null ? s.optCashPart : (d.consideration === 'mixed' ? s.offer : null),
+      filingStatus: d.filingStatus, note: d.note, flags: d.flags, catalyst: d.catalyst,
       call: leg(s.optCallBid, s.optCallAsk), put: leg(s.optPutBid, s.optPutAsk)})});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     renderOptions(await r.json());
   }catch(e){
     const st = $('optstatus');
     if (st) st.textContent = 'The local options calculation did not answer.';
+    const bench = $('putbench');
+    if (bench) bench.innerHTML = '<p class="sub">The comparison did not answer. The payoff cards above are unchanged.</p>';
   }
 }
 function renderOptions(data){
@@ -722,6 +759,8 @@ function renderOptions(data){
   if (!host) return;
   if (st) st.textContent = data.pCloseNote || '';
   host.innerHTML = ['call', 'put'].map(side => optionCard(data[side])).join('');
+  const bench = $('putbench');
+  if (bench) bench.innerHTML = putBenchmarkSection(data && data.putBenchmark, DEALS.find(x => x.id === SELECTED));
 }
 function optionCard(c){
   if (!c) return '';
@@ -738,6 +777,74 @@ function optionCard(c){
     '<div class="row"><span>Most you can lose</span><b>' + (c.maxLoss != null ? money(c.maxLoss) : '—') + '</b></div>' +
     scenarios + greeks + signals +
     (c.errors && c.errors.length ? '<p class="sub">' + esc(c.errors.join(' ')) + '</p>' : '') + '</div>';
+}
+const BENCH_MISSING = {
+  spot: 'stock price', strike: 'strike', days: 'days to expiration', rate: 'interest rate',
+  volatility: 'implied volatility', downside: 'price if the deal breaks', days_to_close: 'expected closing date',
+  offer: 'cash offer', exchange_ratio: 'exchange ratio', acquirer_price: 'acquirer stock price',
+  cash_amount: 'cash amount per share', consideration: 'cash, stock, or mixed consideration',
+  p_close: 'close probability', p_pending: 'pending close probability'
+};
+const BENCH_SCENES = {
+  close: ['Deal closes', 'The stock is repriced at the acquisition value. Volatility stays the existing close-scenario assumption.'],
+  pending: ['Deal remains pending', 'The option expires before the outcome is known. The stock sits between the offer and the break price.'],
+  break: ['Deal breaks', 'The stock falls to the downside price, at the standalone volatility.']
+};
+function optpx(x){
+  if (x === null || x === undefined || !isFinite(x)) return '—';
+  if (x === 0) return '$0.00';
+  const abs = Math.abs(x);
+  const digits = abs >= 0.01 ? 4 : Math.min(8, Math.max(4, Math.ceil(-Math.log10(abs)) + 2));
+  const n = abs.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: digits});
+  return (x < 0 ? '-$' : '$') + n;
+}
+function putBenchmarkSection(bench, deal){
+  if (!bench) return '<h3>M&amp;A put pricing comparison</h3><p class="sub">The comparison is unavailable. The payoff cards above are unchanged.</p>';
+  const s = deal && STATE[deal.id];
+  const paid = {cash: 'Cash', stock: 'Stock', mixed: 'Mixed'}[bench.consideration] || 'Not stated in the filing';
+  const missing = (bench.missing || []).map(name => BENCH_MISSING[name] || name);
+  const both = bench.blackScholes != null && bench.maAware != null;
+  const scenes = (bench.scenarios || []).map(sc => {
+    const copy = BENCH_SCENES[sc.key] || [sc.key, ''];
+    return '<div class="sc ' + esc(sc.key) + '"><div class="t"><b>' + esc(copy[0]) + '</b><span>' + pct(sc.weight, 1) + '</span></div>' +
+      '<p class="d">' + esc(copy[1]) + '</p>' +
+      '<div class="row"><span>Stock level</span><b>' + optpx(sc.spot) + '</b></div>' +
+      '<div class="row"><span>Theoretical put</span><b>' + optpx(sc.value) + '</b></div></div>';
+  }).join('');
+  const ratio = s && s.optRatio != null ? String(s.optRatio) : null;
+  const offer = s && s.offer != null ? money(s.offer) : null;
+  const terms = bench.consideration === 'stock'
+    ? (ratio ? ratio + ' share' + (s.optRatio === 1 ? '' : 's') + ' of the acquirer' : 'Exchange ratio not available')
+    : bench.consideration === 'mixed'
+      ? [(offer ? offer + ' cash' : 'Cash amount not available'), (ratio ? 'ratio ' + ratio : 'exchange ratio not available')].join(', ')
+      : (offer || (bench.acquisitionLevel != null ? money(bench.acquisitionLevel) : 'Offer not available'));
+  const closeDate = deal && deal.expectedClose ? deal.expectedClose : (s && s.dtcEdited && s.dtc ? s.dtc + ' days, entered on the deal card' : 'Not in the filing');
+  const filingP = s ? s.pBase : bench.pClose;
+  const chance = filingP == null ? 'Not available' : pct(filingP, 0);
+  const edited = s && s.pCloseManual && s.pClose != null && filingP != null && Math.abs(s.pClose - filingP) > 0.0005
+    ? ' The comparison uses the edited deal-card chance of ' + pct(s.pClose, 0) + '.' : '';
+  return '<h3>M&amp;A put pricing comparison</h3>' +
+    '<p class="sub">Theoretical values. They are not observed market premiums, and a gap between them is not a profit.</p>' +
+    '<h3>Model comparison</h3>' +
+    '<div class="stats">' +
+      '<div class="stat"><small>Black-Scholes theoretical put</small><b>' + optpx(bench.blackScholes) + '</b><span>Conventional baseline. Not an observed premium.</span></div>' +
+      '<div class="stat"><small>DealRadar M&amp;A-aware theoretical put</small><b>' + optpx(bench.maAware) + '</b><span>Close, pending, and break. Not an observed premium.</span></div>' +
+      '<div class="stat"><small>Difference</small><b>' + (both ? optpx(bench.absoluteDifference) : '—') + '</b><span>' + (both && bench.percentDifference != null ? pct(bench.percentDifference, 1) + ' versus Black-Scholes' : 'Percentage needs both theoretical prices') + '</span></div>' +
+    '</div>' +
+    '<div class="row"><span>Observed ask you typed</span><b>' + (bench.marketPremium != null ? optpx(bench.marketPremium) + ' per share' : 'No observed premium') + '</b></div>' +
+    (bench.reason && !both ? '<p class="notice">' + esc(bench.reason) + (missing.length ? ' Missing: ' + esc(missing.join(', ')) + '.' : '') + '</p>' : '') +
+    (missing.length && both ? '<p class="sub">Some inputs are still missing: ' + esc(missing.join(', ')) + '.</p>' : '') +
+    '<h3>Deal scenario breakdown</h3>' +
+    (scenes ? '<div class="scen">' + scenes + '</div>' : '<p class="sub">The scenario breakdown is unavailable' + (missing.length ? ' until these are present: ' + esc(missing.join(', ')) : '') + '.</p>') +
+    '<h3>Acquisition information</h3>' +
+    '<div class="rows">' +
+      '<div><span>Consideration</span><b>' + esc(paid) + '</b></div>' +
+      '<div><span>' + (bench.consideration === 'stock' ? 'Exchange ratio' : bench.consideration === 'mixed' ? 'Cash and exchange ratio' : 'Offer price') + '</span><b>' + esc(terms) + '</b></div>' +
+      '<div><span>Filing-based close probability</span><b>' + esc(chance) + '</b></div>' +
+      '<div><span>Expected closing date</span><b>' + esc(closeDate) + '</b></div>' +
+    '</div>' +
+    '<p class="sub">The close probability is a filing-based heuristic, not a trained predictive model.' + edited + (bench.expiresBeforeClose ? ' This put expires before the expected close, so the pending scenario carries most of the weight under the existing timing rule.' : '') + '</p>' +
+    (bench.notes || []).map(note => '<p class="sub">' + esc(note) + '</p>').join('');
 }
 function paintQuote(d, s){
   const q = stockQuote(s);

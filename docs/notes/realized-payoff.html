@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realized payoff · DealRadar</title>
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<header><a href="../index.html">DealRadar</a></header>
+<main>
+<h1>OTM put realized-payoff coverage</h1>
+<p>This report reads the historical SQLite file. It does not price an option with Black-Scholes, and it does not call a data provider.</p>
+<h2>What was measured</h2>
+<ul><li>Verified deals are target filings that are not amendments and not same-week duplicates.</li><li>The research put is struck at 80% of the last stored close before the announcement. That strike is not a listed contract.</li><li>The realized payoff is the undiscounted intrinsic value at the close 30 trading sessions after the announcement: max(strike - later close, 0).</li><li>A row is scored only when the filing says cash, an offer price is stored, the prior close is stored, and the later close is stored.</li><li>No option premium is subtracted, because no historical option premium is stored.</li></ul>
+<h2>Coverage</h2>
+<ul><li>Verified deals: 749</li><li>Offer price stored: 124</li><li>Consideration stored: 155 (cash 122, stock 31, mixed 2, other 0)</li><li>Exchange ratio stored: 33</li><li>Standalone stock price, the last stored close before the announcement: 237</li><li>Outcome table price before announcement: 237</li><li>Outcome table close 30 sessions later: 237</li><li>Deals whose ticker has at least one stored daily close: 238</li><li>Deals with a stored close 30 sessions after the announcement: 237</li></ul>
+<h2>Missing</h2>
+<ul><li>Offer price: 625</li><li>Consideration: 594</li><li>Exchange ratio: 716</li><li>Standalone stock price: 512</li><li>Historical daily closes for the target ticker: 511</li><li>Announcement date: 0</li><li>Close 30 trading sessions later: 512</li><li>Not a cash deal, so no payoff was calculated: 627</li></ul>
+<h2>Realized payoffs</h2>
+<ul><li>Deals scored: 7</li><li>Finished with a positive intrinsic value: 0</li><li>Finished worthless: 7</li><li>Average intrinsic value per share: 0.0000</li></ul>
+<table><thead><tr><th>Ticker</th><th>Announcement</th><th>Offer</th><th>Prior close</th><th>Research strike</th><th>Later close</th><th>Intrinsic</th></tr></thead><tbody><tr><td>HBNC</td><td>2016-03-11</td><td>17.50</td><td>10.62</td><td>8.4942</td><td>10.97</td><td>0.0000</td></tr><tr><td>TSN</td><td>2017-04-28</td><td>40.25</td><td>64.61</td><td>51.6880</td><td>61.27</td><td>0.0000</td></tr><tr><td>LLY</td><td>2019-01-07</td><td>235.00</td><td>114.66</td><td>91.7280</td><td>122.66</td><td>0.0000</td></tr><tr><td>CNR</td><td>2022-03-07</td><td>24.65</td><td>35.92</td><td>28.7360</td><td>47.33</td><td>0.0000</td></tr><tr><td>CVS</td><td>2023-02-08</td><td>39.00</td><td>85.98</td><td>68.7840</td><td>72.37</td><td>0.0000</td></tr><tr><td>GILD</td><td>2024-02-12</td><td>32.50</td><td>73.67</td><td>58.9360</td><td>72.41</td><td>0.0000</td></tr><tr><td>GILD</td><td>2026-02-23</td><td>115.00</td><td>151.40</td><td>121.1200</td><td>138.80</td><td>0.0000</td></tr></tbody></table>
+<h2>Realized-payoff error and market pricing error</h2>
+<ul><li>Realized-payoff error against Black-Scholes or the M&amp;A scenario model: not computed. Both models need an implied volatility, and this database does not store one. None was filled in.</li><li>Options-market pricing error: not computed. The database has no historical option bid, ask, or implied volatility. The stored observed premium is the stock&#x27;s offer premium, not an option premium, and it was not used.</li><li>The intrinsic values above are the put&#x27;s stock-path payoff. They are not a statement that either model was right or wrong.</li></ul>
+<h2>Assumptions and limits</h2>
+<ul><li>Stock and mixed deals are counted in the coverage and are not scored. A stock deal needs the acquirer&#x27;s price, which is not stored on the announcement.</li><li>The 30-session close is the same offset the dataset builder stores. It is not an option expiration date from an exchange.</li><li>The research strike is below the prior close by construction. It is one assumption, not a search over strikes.</li><li>A stored offer is used as stored. It was not dropped when it sits far from the prior close, and it was not corrected.</li><li>Daily closes are the stored Yahoo chart closes. A missing bar is not replaced.</li><li>This file does not change the live pricing engine, the server, or the screen.</li></ul>
+</main>
+</body>
+</html>

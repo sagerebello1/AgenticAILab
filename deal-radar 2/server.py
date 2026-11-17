@@ -554,7 +554,9 @@ class Handler(BaseHTTPRequestHandler):
             if isinstance(leg, dict):
                 leg["source"] = "manual"
                 leg.pop("quotedAt", None)
-        self._send(200, options.analyze(body))
+        # Deal fields on the body are left intact for the put benchmark.
+        report = options.analyze(body)
+        self._send(200, report)
 
     def _scan(self, q):
         force = bool(q.get("refresh"))
